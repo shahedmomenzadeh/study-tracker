@@ -1,0 +1,118 @@
+name: Build and Release Changiz
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'نسخه دستی برچسب (مثال: v1.0.1)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Publish Release Assets
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Run Test Suite (14 Tests)
+        run: npm test
+
+      - name: Verify TypeScript Types
+        run: npx tsc --noEmit
+
+      - name: Determine Version and Tag
+        id: version_info
+        shell: pwsh
+        run: |
+          $pkgVersion = (Get-Content -Raw -Path "package.json" | ConvertFrom-Json).version
+          if ("${{ github.event.inputs.version }}" -ne "") {
+            $tag = "${{ github.event.inputs.version }}"
+          } elseif ("${{ github.ref_type }}" -eq "tag") {
+            $tag = "${{ github.ref_name }}"
+          } else {
+            $tag = "v$pkgVersion"
+          }
+
+          Write-Host "Target Release Tag: $tag"
+          Write-Host "Package Version: $pkgVersion"
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "version=$pkgVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Compile Windows Executables with .NET Compiler
+        shell: pwsh
+        run: |
+          $csc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          Write-Host "Using C# compiler at $csc"
+
+          # 1. Compile Uninstall.exe
+          Write-Host "Compiling Uninstall.exe..."
+          & $csc /target:winexe /out:Uninstall.exe /win32icon:assets\icon.ico src\Uninstall.cs
+          if ($LASTEXITCODE -ne 0) { throw "Compilation failed for Uninstall.exe" }
+
+          # 2. Compile Changiz.exe (Portable Launcher)
+          Write-Host "Compiling Changiz.exe..."
+          & $csc /target:winexe /out:Changiz.exe /win32icon:assets\icon.ico src\ChangizApp.cs
+          if ($LASTEXITCODE -ne 0) { throw "Compilation failed for Changiz.exe" }
+
+          # 3. Create app_bundle.zip for standalone installer
+          Write-Host "Archiving app_bundle.zip..."
+          tar -acf app_bundle.zip src assets index.js package.json README.md Changiz.exe Uninstall.exe
+          if ($LASTEXITCODE -ne 0) { throw "Failed to create app_bundle.zip" }
+
+          # 4. Compile Changiz-Setup.exe (Standalone Installer)
+          Write-Host "Compiling Changiz-Setup.exe with embedded bundle..."
+          & $csc /target:winexe /out:Changiz-Setup.exe /win32icon:assets\icon.ico /res:app_bundle.zip,app_bundle.zip src\ChangizSetup.cs
+          if ($LASTEXITCODE -ne 0) { throw "Compilation failed for Changiz-Setup.exe" }
+
+          Write-Host "Successfully compiled binaries:"
+          Get-Item Changiz-Setup.exe, Changiz.exe, Uninstall.exe | Select-Object Name, Length
+
+      - name: Publish GitHub Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version_info.outputs.tag }}
+          name: چنگیز ${{ steps.version_info.outputs.tag }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## 🚀 انتشار نسخه جدید چنگیز (${{ steps.version_info.outputs.tag }})
+            > **چنگیز با سیبیل کلفتش بالاسرته که درست رو بخونی!**
+
+            ### 📦 فایل‌های اجرایی جهت دانلود (Assets):
+            - **`Changiz-Setup.exe`**: فایل نصبی کامل و آسان ویندوز (پیشنهادی) — نصب تمیز همراه با ایجاد میانبر روی دسکتاپ و منوی استارت.
+            - **`Changiz.exe`**: فایل پرتابل مستقیم (بدون نیاز به نصب).
+
+            ### 🛡️ قابلیت‌های پایش و گزارش‌گیری:
+            - پایش دوره‌ای ۵ دقیقه‌ای حضور با هوش مصنوعی (MediaPipe Tasks Vision).
+            - پردازش ۱۰۰٪ آفلاین و محلی روی CPU با WebAssembly.
+            - ثبت عکس مستند در لحظات عدم حضور پشت سیستم.
+            - گزارش دو عدد مجزا: **ساعت واقعی (تأییدشده با وبکم)** و **ساعت غیرواقعی (تایمر/کرنومتر)**.
+            - ادامه پیوسته تایمر در زمان ترک میز بدون وقفه در جلسه مطالعه.
+          files: |
+            Changiz-Setup.exe
+            Changiz.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>چنگیز | Changiz - چنگیز با سیبیل کلفتش بالاسرته که درست رو بخونی</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Embedded Vazirmatn font fallback for pristine offline typography */
+    @font-face {
+      font-family: 'Vazirmatn';
+      font-weight: 400;
+      font-style: normal;
+      src: local('Vazirmatn'), local('Vazir'), local('Segoe UI'), local('Tahoma');
+    }
+    @font-face {
+      font-family: 'Vazirmatn';
+      font-weight: 700;
+      font-style: normal;
+      src: local('Vazirmatn Bold'), local('Vazir Bold'), local('Segoe UI Semibold'), local('Tahoma');
+    }
+  </style>
+</head>
+<body data-theme="dark">
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="logo-area">
+      <div class="logo-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="18" x="3" y="3" rx="4" />
+          <path d="M3 9h18" />
+          <path d="M9 21V9" />
+        </svg>
+      </div>
+      <div class="logo-text">
+        <div class="logo-title">
+          <span>چنگیز</span>
+          <span class="offline-pill"><span class="offline-dot"></span>آفلاین</span>
+        </div>
+        <div class="logo-subtitle">چنگیز با سیبیل کلفتش بالاسرته که درست رو بخونی</div>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="date-badge" id="currentDateBadge">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+          <line x1="16" x2="16" y1="2" y2="6"/>
+          <line x1="8" x2="8" y1="2" y2="6"/>
+          <line x1="3" x2="21" y1="10" y2="10"/>
+        </svg>
+        <span id="dateText">درحال بارگذاری...</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- Theme Switcher -->
+      <button class="btn-icon" id="btnThemeToggle" title="تغییر تم">
+        <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4"/>
+          <path d="M12 2v2"/><path d="M12 20v2"/>
+          <path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/>
+          <path d="M2 12h2"/><path d="M20 12h2"/>
+          <path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+        </svg>
+      </button>
+
+      <!-- History Log -->
+      <button class="btn-icon" id="btnOpenHistory" title="تاریخچه جلسات مطالعه">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+          <path d="M3 3v5h5"/>
+          <path d="M12 7v5l3 3"/>
+        </svg>
+      </button>
+
+      <!-- Backup / Restore -->
+      <button class="btn-icon" id="btnOpenBackup" title="پشتیبان‌گیری و بازیابی داده‌ها">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" x2="12" y1="15" y2="3"/>
+        </svg>
+      </button>
+
+      <!-- Settings -->
+      <button class="btn-icon" id="btnOpenSettings" title="تنظیمات زمان و اهداف">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Bento Grid Container -->
+  <main class="bento-container">
+
+    <!-- 1. Main Timer Card (Span 7) -->
+    <section class="bento-card card-timer">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </span>
+          <span class="card-title">تایمر تمرکز بنتو</span>
+        </div>
+        <button class="card-action-btn" id="btnResetTimer">بازنشانی</button>
+      </div>
+
+      <!-- Mode Switcher: Classic vs Reverse -->
+      <div class="timer-mode-switcher">
+        <button class="mode-btn active" id="btnModeClassic" data-mode="classic">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+          حالت کلاسیک (معکوس)
+        </button>
+        <button class="mode-btn" id="btnModeReverse" data-mode="reverse">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          حالت معکوس (شمارش صعودی)
+        </button>
+      </div>
+
+      <!-- Classic Sub-modes -->
+      <div class="timer-sub-modes" id="classicSubModes">
+        <button class="sub-mode-pill active" data-submode="focus" id="btnSubFocus">تمرکز (۲۵ دقیقه)</button>
+        <button class="sub-mode-pill" data-submode="shortBreak" id="btnSubShort">استراحت کوتاه (۵ دقیقه)</button>
+        <button class="sub-mode-pill" data-submode="longBreak" id="btnSubLong">استراحت طولانی (۱۵ دقیقه)</button>
+      </div>
+
+      <!-- Timer Clock -->
+      <div class="timer-display-area">
+        <div class="timer-clock" id="timerClock" title="برای تغییر زمان، روی عدد کلیک کنید">۲۵:۰۰</div>
+        <input type="text" id="timerClockInput" class="timer-clock-input" style="display: none;" placeholder="مثال: ۴۰ یا ۲۵:۰۰" autocomplete="off" spellcheck="false">
+        <div class="timer-edit-hint" id="timerEditHint">✏️ برای ویرایش مستقیم زمان، روی عدد کلیک کنید</div>
+        <div class="timer-subtext" id="timerSubtext">زمان تمرکز عمیق روی مبحث انتخابی</div>
+        
+        <!-- Reverse Mode Earned Break Banner -->
+        <div class="reverse-break-badge" id="reverseBreakBadge" style="display: none;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+          استراحت اندوخته شما: <span id="earnedBreakTime">۰ دقیقه</span>
+        </div>
+
+        <!-- Progress Fill -->
+        <div class="timer-progress-bar">
+          <div class="timer-progress-fill" id="timerProgressFill"></div>
+        </div>
+
+        <!-- Pomodoro Cycle Indicators -->
+        <div class="cycle-dots" id="cycleDots">
+          <div class="cycle-dot completed" title="پومودورو ۱"></div>
+          <div class="cycle-dot current" title="پومودورو ۲"></div>
+          <div class="cycle-dot" title="پومودورو ۳"></div>
+          <div class="cycle-dot" title="پومودورو ۴ (استراحت طولانی)"></div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="timer-controls">
+        <button class="btn-timer-secondary" id="btnSkipTimer" title="رد کردن این مرحله">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/>
+          </svg>
+        </button>
+
+        <button class="btn-timer-primary" id="btnTogglePlay">
+          <svg id="playIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          <span id="playBtnText">شروع مطالعه</span>
+        </button>
+
+        <button class="btn-timer-secondary" id="btnSaveSessionManual" title="ثبت و ذخیره جلسه فعلی">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+            <polyline points="7 3 7 8 15 8"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Active Subject Bar -->
+      <div class="active-subject-bar">
+        <span class="subject-label">درس در حال مطالعه:</span>
+        <select class="subject-select" id="activeSubjectSelect">
+          <!-- Dynamically populated -->
+        </select>
+        <button class="card-action-btn" id="btnManageSubjects">⚙️ مدیریت و افزودن درس</button>
+      </div>
+
+      <!-- Presence Monitoring Status Bar -->
+      <div class="presence-bar" id="presenceBar">
+        <div class="presence-info-group">
+          <div class="presence-status-icon-wrap" id="presenceStatusIconWrap">
+            <span class="presence-dot" id="presenceDot"></span>
+          </div>
+          <div class="presence-text-block">
+            <div class="presence-title-line">
+              <span class="presence-title">پایش هوشمند حضور:</span>
+              <span class="presence-badge-status" id="presenceStatusBadge">در انتظار شروع مطالعه</span>
+              <span class="presence-cam-live" id="presenceCamLive" style="display: none;">
+                <span class="presence-cam-pulse"></span> وبکم فعال
+              </span>
+            </div>
+            <div class="presence-subtext" id="presenceSubtext">بررسی ۵ فریم هر ۵ دقیقه • پردازش ۱۰۰٪ محلی آفلاین</div>
+          </div>
+        </div>
+
+        <div class="presence-actions-group">
+          <button class="presence-btn-check-now" id="btnPresenceCheckNow" title="تست و ارزیابی فوری وبکم">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            <span>بررسی اکنون</span>
+          </button>
+
+          <label class="presence-switch" title="فعال یا غیرفعال‌سازی پایش ۵ دقیقه‌ای حضور">
+            <input type="checkbox" id="presenceToggleCheckbox" checked>
+            <span class="presence-slider"></span>
+          </label>
+
+          <button class="card-action-btn" id="btnOpenPresenceInfo" title="حریم خصوصی و تاریخچه پایش">ℹ️</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Streak & Daily Goal Card (Span 5) -->
+    <section class="bento-card card-streak">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+            </svg>
+          </span>
+          <span class="card-title">تداوم و زنجیره مطالعه (Streak)</span>
+        </div>
+      </div>
+
+      <div class="streak-highlight-box">
+        <div>
+          <div class="streak-counter">
+            <span class="streak-number" id="streakCurrentCount">۰</span>
+            <span class="streak-unit">روز پیاپی</span>
+          </div>
+          <div class="streak-info-text" id="streakSubtext">برای روشن نگه داشتن آتش، امروز حداقل ۱ جلسه بخوانید!</div>
+        </div>
+        <div class="streak-icon-wrap">🔥</div>
+      </div>
+
+      <div class="stats-summary-grid">
+        <div class="stat-tile stat-tile-verified">
+          <div class="stat-tile-label">🟢 ساعت واقعی (تأیید وبکم)</div>
+          <div class="stat-tile-value text-success" id="todayStudyTime">۰ دقیقه</div>
+        </div>
+        <div class="stat-tile stat-tile-nominal">
+          <div class="stat-tile-label">⏱️ ساعت غیرواقعی (تایمر)</div>
+          <div class="stat-tile-value text-primary" id="todayNominalTime">۰ دقیقه</div>
+        </div>
+        <div class="stat-tile stat-tile-full">
+          <div class="stat-tile-label">جلسات و نرخ حضور امروز</div>
+          <div class="stat-tile-value" id="todaySessionsCount" style="font-size: 14px; font-weight: 700;">۰ جلسه • ۱۰۰٪ حضور</div>
+        </div>
+      </div>
+
+      <!-- Daily Target Goal -->
+      <div class="daily-goal-section">
+        <div class="goal-header">
+          <span>هدف روزانه: <strong id="goalTargetText">۴ ساعت</strong></span>
+          <span id="goalPercentText">۰٪ محقق شده</span>
+        </div>
+        <div class="goal-progress-bar">
+          <div class="goal-progress-fill" id="goalProgressFill"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Weekly Analytics Card (Span 7) -->
+    <section class="bento-card card-weekly">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="18" x2="18" y1="20" y2="10"/>
+              <line x1="12" x2="12" y1="20" y2="4"/>
+              <line x1="6" x2="6" y1="20" y2="14"/>
+            </svg>
+          </span>
+          <span class="card-title">آمار مطالعه هفتگی (شنبه تا جمعه)</span>
+        </div>
+        <span class="card-action-btn" id="weeklyTotalText">مجموع: ۰ ساعت</span>
+      </div>
+
+      <div class="chart-wrapper">
+        <canvas id="weeklyChartCanvas" class="chart-canvas"></canvas>
+      </div>
+    </section>
+
+    <!-- 4. Subject Distribution Card (Span 5) -->
+    <section class="bento-card card-subjects">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
+              <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+            </svg>
+          </span>
+          <span class="card-title">توزیع دروس</span>
+        </div>
+        <button class="card-action-btn" id="btnManageSubjectsFromDonut">⚙️ مدیریت دروس</button>
+      </div>
+
+      <div class="subjects-chart-container">
+        <div class="donut-canvas-wrap">
+          <canvas id="subjectDonutCanvas" class="chart-canvas"></canvas>
+        </div>
+        <div class="subjects-legend-list" id="subjectsLegendList">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Activity Heatmap Card (Span 12) -->
+    <section class="bento-card card-heatmap">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <rect width="18" height="18" x="3" y="3" rx="2"/>
+              <path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>
+            </svg>
+          </span>
+          <span class="card-title">تقویم فعالیت و روزهای مطالعه (Heatmap)</span>
+        </div>
+        <span class="card-action-btn" id="heatmapStreakRecord">بهترین زنجیره: ۰ روز</span>
+      </div>
+
+      <div class="heatmap-scroll-area">
+        <div class="heatmap-grid" id="heatmapGrid">
+          <!-- Dynamically populated with 16 weeks of daily cells -->
+        </div>
+      </div>
+
+      <div class="heatmap-legend">
+        <span>کمتر</span>
+        <div class="heatmap-cell" data-level="0"></div>
+        <div class="heatmap-cell" data-level="1"></div>
+        <div class="heatmap-cell" data-level="2"></div>
+        <div class="heatmap-cell" data-level="3"></div>
+        <div class="heatmap-cell" data-level="4"></div>
+        <span>بیشتر</span>
+      </div>
+    </section>
+
+    <!-- 6. Study Tasks / To-Do Card (Span 7) -->
+    <section class="bento-card card-tasks">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="m9 11 3 3L22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+          </span>
+          <span class="card-title">برنامه‌ریزی و مباحث برای مرور</span>
+        </div>
+        <span class="card-action-btn" id="taskCompletionCount">۰ از ۰ انجام شده</span>
+      </div>
+
+      <div class="task-input-bar">
+        <input type="text" id="taskInput" class="task-input" placeholder="عنوان مبحث یا تست‌های امروز را بنویسید...">
+        <button class="btn-add-task" id="btnAddTask">+ ثبت کار</button>
+      </div>
+
+      <div class="tasks-list" id="tasksList">
+        <!-- Dynamically populated -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal: Settings -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">تنظیمات تایمر و اهداف</h3>
+        <button class="card-action-btn" id="btnCloseSettings">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">مدت زمان تمرکز (دقیقه)</label>
+        <input type="number" id="settingFocusMinutes" class="form-input" min="5" max="120" value="25">
+      </div>
+      <div class="form-group">
+        <label class="form-label">استراحت کوتاه (دقیقه)</label>
+        <input type="number" id="settingShortBreak" class="form-input" min="1" max="30" value="5">
+      </div>
+      <div class="form-group">
+        <label class="form-label">استراحت طولانی (دقیقه)</label>
+        <input type="number" id="settingLongBreak" class="form-input" min="5" max="60" value="15">
+      </div>
+      <div class="form-group">
+        <label class="form-label">هدف روزانه مطالعه (ساعت)</label>
+        <input type="number" id="settingDailyGoal" class="form-input" min="1" max="18" step="0.5" value="4">
+      </div>
+      <div class="form-group">
+        <label class="form-label">صدای زنگ و هشدارهای پایان پومودورو</label>
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 6px;">
+          <input type="checkbox" id="settingSoundToggle" checked style="accent-color: var(--primary); width: 18px; height: 18px;">
+          <span style="font-size: 13px;">پخش زنگ دلنشین در پایان هر جلسه</span>
+        </label>
+      </div>
+
+      <div class="form-group" style="border-top: 1px solid var(--border-color); padding-top: 14px; margin-top: 14px;">
+        <label class="form-label">پایش دوره‌ای حضور با وبکم (هر ۵ دقیقه)</label>
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 6px;">
+          <input type="checkbox" id="settingPresenceToggle" checked style="accent-color: var(--primary); width: 18px; height: 18px;">
+          <span style="font-size: 13px;">فعال بودن پایش خودکار حضور هنگام مطالعه</span>
+        </label>
+        <div style="margin-top: 10px;">
+          <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">
+            <span>آستانه حساسیت مدل (Confidence):</span>
+            <span id="settingPresenceThresholdVal">۰.۵۰</span>
+          </div>
+          <input type="range" id="settingPresenceThreshold" min="0.3" max="0.9" step="0.05" value="0.5" style="width: 100%; accent-color: var(--primary);">
+        </div>
+      </div>
+      <button class="btn-timer-primary" style="width: 100%; justify-content: center; margin-top: 20px;" id="btnSaveSettings">
+        ذخیره تغییرات
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal: Subjects Management -->
+  <div class="modal-overlay" id="subjectsModal">
+    <div class="modal-content" style="max-width: 560px;">
+      <div class="modal-header">
+        <h3 class="modal-title">مدیریت و سفارشی‌سازی دروس</h3>
+        <button class="card-action-btn" id="btnCloseSubjects">✕</button>
+      </div>
+
+      <!-- Add New Subject Box -->
+      <div style="background: var(--bg-card-inner); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+        <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 10px; color: var(--primary);">+ افزودن درس جدید</div>
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label class="form-label">نام درس</label>
+          <input type="text" id="newSubjectName" class="form-input" placeholder="مثال: فیزیک، برنامه‌نویسی، ادبیات، حقوق...">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">انتخاب رنگ شاخص درس</label>
+          <div class="color-picker-row" id="colorPickerRow">
+            <div class="color-option selected" style="background: #ff6b35;" data-color="#ff6b35" title="نارنجی"></div>
+            <div class="color-option" style="background: #3b82f6;" data-color="#3b82f6" title="آبی"></div>
+            <div class="color-option" style="background: #10b981;" data-color="#10b981" title="سبز"></div>
+            <div class="color-option" style="background: #8b5cf6;" data-color="#8b5cf6" title="بنفش"></div>
+            <div class="color-option" style="background: #ec4899;" data-color="#ec4899" title="صورتی"></div>
+            <div class="color-option" style="background: #f59e0b;" data-color="#f59e0b" title="کهربایی"></div>
+            <div class="color-option" style="background: #06b6d4;" data-color="#06b6d4" title="فیروزه‌ای"></div>
+            <div class="color-option" style="background: #ef4444;" data-color="#ef4444" title="قرمز"></div>
+            <div class="color-option" style="background: #14b8a6;" data-color="#14b8a6" title="سبز آبی"></div>
+            <div class="color-option" style="background: #6366f1;" data-color="#6366f1" title="نیلی"></div>
+          </div>
+        </div>
+        <button class="btn-timer-primary" style="width: 100%; justify-content: center; padding: 10px 18px; font-size: 13.5px;" id="btnAddSubjectSubmit">
+          + افزودن به لیست دروس
+        </button>
+      </div>
+
+      <!-- Header for Subject List with Actions -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <label class="form-label" style="margin-bottom: 0;">لیست دروس شما (<span id="subjectsCountText">۰ درس</span>)</label>
+        <div style="display: flex; gap: 6px;">
+          <button class="card-action-btn" id="btnClearDefaultSubjects" title="حذف همه دروس برای ثبت لیست کاملاً شخصی">🗑️ پاک‌سازی همه</button>
+          <button class="card-action-btn" id="btnRestoreDefaultSubjects" title="بازنشانی دروس پیش‌فرض">🔄 بازگردانی پیش‌فرض‌ها</button>
+        </div>
+      </div>
+
+      <div class="tasks-list" id="managedSubjectsList" style="max-height: 260px;">
+        <!-- List of existing subjects -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: History Log -->
+  <div class="modal-overlay" id="historyModal">
+    <div class="modal-content" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3 class="modal-title">تاریخچه جلسات مطالعه</h3>
+        <button class="card-action-btn" id="btnCloseHistory">✕</button>
+      </div>
+      <div style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px;">
+        تمامی جلسات ثبت‌شده شما به تفکیک تاریخ شمسی، درس و زمان:
+      </div>
+      <div class="tasks-list" id="historySessionsList" style="max-height: 400px;">
+        <!-- Dynamically populated -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Backup & Restore -->
+  <div class="modal-overlay" id="backupModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">پشتیبان‌گیری و بازیابی داده‌ها (آفلاین)</h3>
+        <button class="card-action-btn" id="btnCloseBackup">✕</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 18px;">
+        تمامی داده‌های شما (جلسات، استریک‌ها، تسک‌ها و دروس) در حافظه محلی کامپیوتر شما ذخیره می‌شوند. می‌توانید با یک کلیک یک فایل پشتیبان JSON دریافت کنید یا داده‌های قبلی خود را بازیابی نمایید.
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button class="btn-timer-primary" style="justify-content: center;" id="btnExportJSON">
+          📥 خروجی گرفتن از فایل پشتیبان (Export JSON)
+        </button>
+        <button class="btn-icon" style="width: 100%; height: 44px; border-radius: var(--radius-sm);" id="btnImportJSON">
+          📤 بارگذاری فایل پشتیبان (Import JSON)
+        </button>
+        <input type="file" id="importFileInput" accept=".json" style="display: none;">
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Presence Info & Privacy & Log -->
+  <div class="modal-overlay" id="presenceInfoModal">
+    <div class="modal-content" style="max-width: 620px;">
+      <div class="modal-header">
+        <div class="card-title-group">
+          <span class="card-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </span>
+          <h3 class="modal-title">پایش دوره‌ای حضور و تعهد حریم خصوصی</h3>
+        </div>
+        <button class="card-action-btn" id="btnClosePresenceInfo">✕</button>
+      </div>
+
+      <!-- Privacy Assurance Banner -->
+      <div class="presence-privacy-card">
+        <div class="privacy-item">
+          <div class="privacy-icon">⏱️</div>
+          <div>
+            <strong>فواصل منظم ۵ دقیقه‌ای:</strong>
+            تنها حین مطالعه فعال، هر ۵ دقیقه یکبار دوربین برای حدود ۱ تا ۲ ثانیه فعال شده، ۵ فریم متوالی را ارزیابی نموده و فوراً متوقف می‌شود.
+          </div>
+        </div>
+        <div class="privacy-item">
+          <div class="privacy-icon">🔒</div>
+          <div>
+            <strong>پردازش کاملاً آفلاین و محلی (CPU + WebAssembly):</strong>
+            هوش مصنوعی به صورت مستقیم در مرورگر شما اجرا می‌شود. هیچ تصویری هرگز ذخیره نشده و هیچ فریم، عکس یا ویدیویی به اینترنت ارسال نمی‌گردد.
+          </div>
+        </div>
+        <div class="privacy-item">
+          <div class="privacy-icon">👤</div>
+          <div>
+            <strong>صرفاً تشخیص حضور فیزیکی:</strong>
+            مدل EfficientDet-Lite0 تنها وجود دسته‌بندی «شخص (person)» در کادر تصویر را تشخیص می‌دهد؛ هیچ‌گونه پردازش چهره، احراز هویت یا تحلیل نگاه/تمرکز انجام نمی‌شود.
+          </div>
+        </div>
+        <div class="privacy-item">
+          <div class="privacy-icon">🛡️</div>
+          <div>
+            <strong>تمایز خطای فنی از عدم حضور:</strong>
+            در صورت عدم دسترسی به دوربین یا رد مجوز، وضعیت «نامشخص (UNKNOWN)» ثبت می‌شود و هرگز به عنوان ترک میز تلقی نمی‌گردد.
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Presence Observations Log -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 18px; margin-bottom: 10px;">
+        <label class="form-label" style="margin-bottom: 0;">تاریخچه بررسی‌های حضور (<span id="presenceLogCount">۰ ثبت</span>)</label>
+        <button class="card-action-btn" id="btnClearPresenceLogs">پاک‌سازی لاگ‌ها</button>
+      </div>
+
+      <div class="tasks-list" id="presenceLogsList" style="max-height: 240px;">
+        <!-- Dynamically populated observation logs -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Evidence Photo Viewer -->
+  <div class="modal-overlay" id="evidenceModal" style="z-index: 1100;">
+    <div class="modal-content" style="max-width: 500px; text-align: right;">
+      <div class="modal-header">
+        <div class="card-title-group">
+          <span class="card-icon" style="color: #ef4444;">📷</span>
+          <h3 class="modal-title">مدرک تصویری عدم حضور در کادر</h3>
+        </div>
+        <button class="card-action-btn" id="btnCloseEvidence">✕</button>
+      </div>
+
+      <div style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.6;">
+        این تصویر در لحظه‌ای ثبت شده که مدل هوش مصنوعی در بررسی دوره‌ای وبکم، چهره یا شخصی را پشت سیستم شناسایی نکرده است:
+      </div>
+
+      <div class="evidence-photo-box" style="margin-bottom: 14px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-color); background: #000; text-align: center;">
+        <img id="evidenceImageDisplay" src="" alt="مدرک تصویری عدم حضور" style="max-width: 100%; max-height: 320px; object-fit: contain; display: inline-block;" />
+      </div>
+
+      <div id="evidenceMetaBox" style="background: var(--bg-card-inner); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px 14px; font-size: 12.5px; line-height: 1.8; margin-bottom: 16px;">
+        <!-- Populated dynamically -->
+      </div>
+
+      <button class="btn-timer-primary" id="btnCloseEvidenceBtn" style="width: 100%; justify-content: center;">
+        متوجه شدم (بستن پنجره)
+      </button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="mediapipe/vision_bundle.js"></script>
+  <script src="jalali.js"></script>
+  <script src="audio.js"></script>
+  <script src="charts.js"></script>
+  <script src="presence.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
+

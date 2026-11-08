@@ -1,0 +1,20 @@
+{
+  "name": "changiz",
+  "version": "1.0.0",
+  "description": "چنگیز با سیبیل کلفتش بالاسرته که درست رو بخونی",
+  "main": "index.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/presence.test.js test/absence-evidence.test.js",
+    "build:ts": "tsc"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^1.2.2"
+  }
+}
