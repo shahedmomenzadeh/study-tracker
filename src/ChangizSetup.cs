@@ -384,7 +384,7 @@ namespace ChangizInstaller
                     if (parent != null)
                     {
                         parent.SetValue("DisplayName", "چنگیز | Changiz Study Tracker");
-                        parent.SetValue("DisplayVersion", "1.0.0");
+                        parent.SetValue("DisplayVersion", "1.1.0");
                         parent.SetValue("Publisher", "Changiz");
                         parent.SetValue("DisplayIcon", iconPath);
                         parent.SetValue("InstallLocation", installDir);

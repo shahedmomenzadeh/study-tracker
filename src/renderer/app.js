@@ -26,8 +26,14 @@
     longBreak: 15,
     dailyGoalHours: 4,
     soundEnabled: true,
-    theme: 'dark'
+    theme: 'dark',
+    autoStartBreak: false,
+    autoStartFocus: false,
+    ambientVolume: 0.35
   };
+
+  const DEFAULT_PAGE_TITLE = document.title;
+  let listenersInitialized = false;
 
   const DEFAULT_PRESENCE = {
     enabled: true,
@@ -59,7 +65,8 @@
       currentSessionId: null,
       sessionStartTime: null,
       sessionAbsences: [],
-      lastCheckTime: null
+      lastCheckTime: null,
+      lastTickMs: null
     }
   };
 
@@ -129,6 +136,11 @@
     settingLongBreak: document.getElementById('settingLongBreak'),
     settingDailyGoal: document.getElementById('settingDailyGoal'),
     settingSoundToggle: document.getElementById('settingSoundToggle'),
+    settingAutoStartBreak: document.getElementById('settingAutoStartBreak'),
+    settingAutoStartFocus: document.getElementById('settingAutoStartFocus'),
+    sessionNoteInput: document.getElementById('sessionNoteInput'),
+    ambientSoundBar: document.getElementById('ambientSoundBar'),
+    ambientVolumeSlider: document.getElementById('ambientVolumeSlider'),
 
     // Timer
     btnModeClassic: document.getElementById('btnModeClassic'),
@@ -187,6 +199,7 @@
     subjectsModal: document.getElementById('subjectsModal'),
     btnCloseSubjects: document.getElementById('btnCloseSubjects'),
     newSubjectName: document.getElementById('newSubjectName'),
+    newSubjectTargetHours: document.getElementById('newSubjectTargetHours'),
     colorPickerRow: document.getElementById('colorPickerRow'),
     btnAddSubjectSubmit: document.getElementById('btnAddSubjectSubmit'),
     managedSubjectsList: document.getElementById('managedSubjectsList'),
@@ -199,12 +212,20 @@
     btnOpenHistory: document.getElementById('btnOpenHistory'),
     btnCloseHistory: document.getElementById('btnCloseHistory'),
     historySessionsList: document.getElementById('historySessionsList'),
+    manualSessionSubject: document.getElementById('manualSessionSubject'),
+    manualSessionMinutes: document.getElementById('manualSessionMinutes'),
+    manualSessionNote: document.getElementById('manualSessionNote'),
+    btnAddManualSession: document.getElementById('btnAddManualSession'),
+    historyRangeFilter: document.getElementById('historyRangeFilter'),
+    historySubjectFilter: document.getElementById('historySubjectFilter'),
+    historyFilteredSummary: document.getElementById('historyFilteredSummary'),
 
     // Backup Modal
     backupModal: document.getElementById('backupModal'),
     btnOpenBackup: document.getElementById('btnOpenBackup'),
     btnCloseBackup: document.getElementById('btnCloseBackup'),
     btnExportJSON: document.getElementById('btnExportJSON'),
+    btnExportCSV: document.getElementById('btnExportCSV'),
     btnImportJSON: document.getElementById('btnImportJSON'),
     importFileInput: document.getElementById('importFileInput'),
 
@@ -237,6 +258,11 @@
   // --- Initial Setup ---
   function init() {
     loadState();
+    SoundManager.setSoundEnabled(state.settings.soundEnabled);
+    SoundManager.setAmbientVolume(state.settings.ambientVolume !== undefined ? state.settings.ambientVolume : 0.35);
+    if (el.ambientVolumeSlider) {
+      el.ambientVolumeSlider.value = SoundManager.getAmbientVolume();
+    }
     applyTheme(state.settings.theme);
     updateDateDisplay();
     populateSubjectsSelect();
@@ -244,9 +270,27 @@
     renderTasks();
     renderHeatmap();
     updateStatsAndCharts();
-    setupEventListeners();
+    if (!listenersInitialized) {
+      setupEventListeners();
+      listenersInitialized = true;
+    }
     resetTimerDisplay();
     initPresenceService();
+  }
+
+  function isFocusSessionActive() {
+    return state.timer.isRunning && (state.timer.mode === 'reverse' || state.timer.subMode === 'focus');
+  }
+
+  function updateDocumentTitle(clockStr = null) {
+    if (state.timer.isRunning && clockStr) {
+      const modeLabel = state.timer.mode === 'reverse'
+        ? 'تمرکز'
+        : (state.timer.subMode === 'focus' ? 'تمرکز' : 'استراحت');
+      document.title = `${clockStr} (${modeLabel}) | چنگیز`;
+    } else {
+      document.title = DEFAULT_PAGE_TITLE;
+    }
   }
 
   // --- Date & Calendar ---
@@ -293,6 +337,40 @@
       if (sub.id === state.activeSubjectId) opt.selected = true;
       el.activeSubjectSelect.appendChild(opt);
     });
+
+    populateHistorySubjectSelects();
+  }
+
+  function populateHistorySubjectSelects() {
+    if (el.manualSessionSubject) {
+      el.manualSessionSubject.innerHTML = '';
+      if (!state.subjects.length) {
+        const opt = document.createElement('option');
+        opt.value = 'general';
+        opt.textContent = 'عمومی';
+        el.manualSessionSubject.appendChild(opt);
+      } else {
+        state.subjects.forEach(sub => {
+          const opt = document.createElement('option');
+          opt.value = sub.id;
+          opt.textContent = sub.name;
+          if (sub.id === state.activeSubjectId) opt.selected = true;
+          el.manualSessionSubject.appendChild(opt);
+        });
+      }
+    }
+
+    if (el.historySubjectFilter) {
+      const prev = el.historySubjectFilter.value || 'all';
+      el.historySubjectFilter.innerHTML = '<option value="all">همه دروس</option>';
+      state.subjects.forEach(sub => {
+        const opt = document.createElement('option');
+        opt.value = sub.id;
+        opt.textContent = sub.name;
+        if (sub.id === prev) opt.selected = true;
+        el.historySubjectFilter.appendChild(opt);
+      });
+    }
   }
 
   function renderManagedSubjects() {
@@ -318,6 +396,7 @@
         <div class="task-left">
           <div style="width: 14px; height: 14px; border-radius: 50%; background: ${sub.color}; flex-shrink: 0; box-shadow: 0 0 8px ${sub.color}80;"></div>
           <span class="task-title" style="font-weight: 700;">${escapeHTML(sub.name)}</span>
+          ${sub.targetHours > 0 ? `<span class="task-tag" style="background: ${sub.color}20; color: ${sub.color};">هدف: ${JalaliDate.toPersianDigits(sub.targetHours)} ساعت</span>` : ''}
         </div>
         <div style="display: flex; align-items: center; gap: 6px;">
           <button class="card-action-btn btn-edit-subject" data-subid="${sub.id}" title="ویرایش نام یا رنگ درس">✏️ ویرایش</button>
@@ -366,6 +445,7 @@
       <div class="subject-edit-wrap">
         <div class="subject-edit-row">
           <input type="text" class="form-input" id="edit-sub-input-${sub.id}" value="${escapeHTML(sub.name)}" style="padding: 7px 10px; font-size: 13px;">
+          <input type="number" class="form-input" id="edit-sub-target-${sub.id}" value="${sub.targetHours || ''}" min="0" max="500" step="0.5" placeholder="هدف (ساعت)" style="padding: 7px 8px; font-size: 12px; width: 92px;">
           <button class="btn-mini-save" id="btn-save-edit-${sub.id}">ذخیره</button>
           <button class="btn-mini-cancel" id="btn-cancel-edit-${sub.id}">انصراف</button>
         </div>
@@ -391,11 +471,14 @@
     });
 
     // Save
+    const targetInput = row.querySelector(`#edit-sub-target-${sub.id}`);
     const saveFunc = () => {
       const newName = input.value.trim();
       if (!newName) return;
       sub.name = newName;
       sub.color = currentColor;
+      const parsedTarget = targetInput ? parseFloat(targetInput.value) : 0;
+      sub.targetHours = (!isNaN(parsedTarget) && parsedTarget > 0) ? parsedTarget : 0;
       saveState();
       populateSubjectsSelect();
       renderManagedSubjects();
@@ -425,6 +508,8 @@
     state.timer.sessionStartTime = null;
     state.timer.sessionAbsences = [];
     state.timer.lastCheckTime = null;
+    state.timer.lastTickMs = null;
+    updateDocumentTitle(null);
     updatePresenceUI();
 
     // Update submode pills with current settings
@@ -507,31 +592,37 @@
     if (state.timer.isRunning) return;
     if (state.timer.isEditing) commitTimerEdit();
 
+    const now = Date.now();
     state.timer.isRunning = true;
-    if (!state.timer.currentSessionId) {
-      state.timer.currentSessionId = 'sess-' + Date.now();
-      state.timer.sessionStartTime = Date.now();
+    state.timer.lastTickMs = now;
+    if (!state.timer.currentSessionId && (state.timer.mode === 'reverse' || state.timer.subMode === 'focus')) {
+      state.timer.currentSessionId = 'sess-' + now;
+      state.timer.sessionStartTime = now;
       state.timer.sessionAbsences = [];
-      state.timer.lastCheckTime = Date.now();
+      state.timer.lastCheckTime = now;
     }
     updatePlayButton();
+    updateDocumentTitle(formatClock(state.timer.mode === 'classic' ? state.timer.timeLeft : state.timer.reverseElapsed));
 
-    if (presenceServiceInstance && state.presence.enabled) {
+    // Only monitor presence during active study/focus intervals (not breaks)
+    if (presenceServiceInstance && state.presence.enabled && isFocusSessionActive()) {
       presenceServiceInstance.start();
     }
     updatePresenceUI();
 
     state.timer.intervalId = setInterval(() => {
       tickTimer();
-    }, 1000);
+    }, 500);
   }
 
   function pauseTimer() {
     if (!state.timer.isRunning) return;
     state.timer.isRunning = false;
+    state.timer.lastTickMs = null;
     clearInterval(state.timer.intervalId);
     state.timer.intervalId = null;
     updatePlayButton();
+    updateDocumentTitle(null);
 
     if (presenceServiceInstance) {
       presenceServiceInstance.stop();
@@ -540,21 +631,35 @@
   }
 
   function tickTimer() {
+    const now = Date.now();
+    const elapsed = StudyUtils.computeElapsedSeconds(state.timer.lastTickMs, now);
+    if (elapsed <= 0) return;
+    state.timer.lastTickMs += elapsed * 1000;
+
     if (state.timer.mode === 'classic') {
       if (state.timer.timeLeft > 0) {
-        state.timer.timeLeft--;
-        el.timerClock.textContent = formatClock(state.timer.timeLeft);
+        state.timer.timeLeft = Math.max(0, state.timer.timeLeft - elapsed);
+        const clockStr = formatClock(state.timer.timeLeft);
+        el.timerClock.textContent = clockStr;
+        updateDocumentTitle(clockStr);
 
-        const progressPercent = ((state.timer.totalDuration - state.timer.timeLeft) / state.timer.totalDuration) * 100;
+        const progressPercent = state.timer.totalDuration > 0
+          ? ((state.timer.totalDuration - state.timer.timeLeft) / state.timer.totalDuration) * 100
+          : 100;
         el.timerProgressFill.style.width = `${progressPercent}%`;
+
+        if (state.timer.timeLeft <= 0) {
+          handleClassicTimerComplete();
+        }
       } else {
-        // Complete current block
         handleClassicTimerComplete();
       }
     } else {
       // Reverse Mode
-      state.timer.reverseElapsed++;
-      el.timerClock.textContent = formatClock(state.timer.reverseElapsed);
+      state.timer.reverseElapsed += elapsed;
+      const clockStr = formatClock(state.timer.reverseElapsed);
+      el.timerClock.textContent = clockStr;
+      updateDocumentTitle(clockStr);
 
       // Earned break: 1 min break per 5 min focus
       const earnedMins = Math.floor(state.timer.reverseElapsed / 300);
@@ -562,35 +667,56 @@
     }
   }
 
+  function sendDesktopNotification(title, body) {
+    try {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification(title, { body });
+      }
+    } catch (_) {
+      // Ignore notification errors in restricted offline contexts
+    }
+  }
+
   function handleClassicTimerComplete() {
+    const finishedSubMode = state.timer.subMode;
     pauseTimer();
     if (presenceServiceInstance) {
       presenceServiceInstance.stop();
     }
     SoundManager.playNotification('complete');
 
-    if (state.timer.subMode === 'focus') {
+    if (finishedSubMode === 'focus') {
       // Record completed session
-      const completedMins = Math.round(state.timer.totalDuration / 60);
+      const completedMins = Math.max(1, Math.round(state.timer.totalDuration / 60));
       recordSession(completedMins, 'classic');
+      sendDesktopNotification('چنگیز — پایان تمرکز!', `عالی بود! ${JalaliDate.toPersianDigits(completedMins)} دقیقه مطالعه ثبت شد. زمان استراحت است.`);
 
       state.timer.cycleCount = (state.timer.cycleCount + 1) % 4;
 
       if (state.timer.cycleCount === 0) {
-        // Reached 4 cycles -> Long break
         setSubMode('longBreak');
       } else {
         setSubMode('shortBreak');
       }
+
+      if (state.settings.autoStartBreak) {
+        startTimer();
+      }
     } else {
       // Break finished -> Back to focus
+      sendDesktopNotification('چنگیز — پایان استراحت!', 'زمان شروع جلسه تمرکز بعدی رسیده است.');
       setSubMode('focus');
+
+      if (state.settings.autoStartFocus) {
+        startTimer();
+      }
     }
 
     updateStatsAndCharts();
   }
 
   function setSubMode(subMode) {
+    pauseTimer();
     state.timer.subMode = subMode;
     document.querySelectorAll('.sub-mode-pill').forEach(pill => {
       pill.classList.toggle('active', pill.getAttribute('data-submode') === subMode);
@@ -682,7 +808,7 @@
       el.classicSubModes.style.display = 'flex';
     }
 
-    const mins = Math.round(totalSecs / 60);
+    const mins = Math.max(1, Math.round(totalSecs / 60));
     state.timer.totalDuration = totalSecs;
     state.timer.timeLeft = totalSecs;
 
@@ -712,34 +838,46 @@
     el.timerClock.textContent = formatClock(state.timer.timeLeft);
   }
 
-  function recordSession(durationMinutes, mode = 'classic') {
+  function recordSession(durationMinutes, mode = 'classic', customOptions = {}) {
     if (durationMinutes <= 0) return;
 
-    const absences = Array.isArray(state.timer.sessionAbsences) ? [...state.timer.sessionAbsences] : [];
+    const isManualEntry = mode === 'manual';
+    const absences = isManualEntry
+      ? []
+      : (Array.isArray(state.timer.sessionAbsences) ? [...state.timer.sessionAbsences] : []);
     const totalAbsentMinutes = absences.reduce((sum, a) => sum + (a.durationMinutes || 0), 0);
     const absentMinutes = Math.min(durationMinutes, totalAbsentMinutes);
     const verifiedMinutes = Math.max(0, durationMinutes - absentMinutes);
 
+    const noteText = customOptions.note !== undefined
+      ? String(customOptions.note).trim()
+      : (el.sessionNoteInput ? el.sessionNoteInput.value.trim() : '');
+
     const session = {
-      id: state.timer.currentSessionId || ('sess-' + Date.now()),
-      subjectId: state.activeSubjectId || 'general',
+      id: (!isManualEntry && state.timer.currentSessionId) ? state.timer.currentSessionId : ('sess-' + Date.now()),
+      subjectId: customOptions.subjectId || state.activeSubjectId || 'general',
       durationMinutes: Math.round(durationMinutes), // ساعت غیرواقعی (ثبت‌شده با تایمر یا کرنومتر)
       verifiedMinutes: Math.round(verifiedMinutes), // ساعت واقعی (تأییدشده با وبکم)
       absentMinutes: Math.round(absentMinutes),
       absences,
       mode,
-      dateKey: JalaliDate.getJalaliDateKey(),
+      note: noteText,
+      dateKey: customOptions.dateKey || JalaliDate.getJalaliDateKey(),
       timestamp: Date.now()
     };
 
     state.sessions.unshift(session);
-    state.timer.currentSessionId = null;
-    state.timer.sessionStartTime = null;
-    state.timer.sessionAbsences = [];
-    state.timer.lastCheckTime = null;
+    if (!isManualEntry) {
+      state.timer.currentSessionId = null;
+      state.timer.sessionStartTime = null;
+      state.timer.sessionAbsences = [];
+      state.timer.lastCheckTime = null;
+      if (el.sessionNoteInput) el.sessionNoteInput.value = '';
+    }
 
     saveState();
     updateStatsAndCharts();
+    renderHeatmap();
   }
 
   // Save reverse mode session
@@ -756,73 +894,7 @@
 
   // --- Streaks and Stats Calculation ---
   function calculateStreaks() {
-    if (!state.sessions.length) return { current: 0, best: 0 };
-
-    // Group dates that have >= 10 mins study (verified study time)
-    const dayTotals = {};
-    state.sessions.forEach(s => {
-      const vMins = s.verifiedMinutes !== undefined ? s.verifiedMinutes : s.durationMinutes;
-      dayTotals[s.dateKey] = (dayTotals[s.dateKey] || 0) + vMins;
-    });
-
-    const activeDays = Object.keys(dayTotals).filter(d => dayTotals[d] >= 10);
-    if (!activeDays.length) return { current: 0, best: 0 };
-
-    // Convert date keys to timestamps for continuity check
-    const sortedDateObjs = activeDays.map(dk => {
-      const [jy, jm, jd] = dk.split('-').map(Number);
-      const g = JalaliDate.jalaliToGregorian(jy, jm, jd);
-      const d = new Date(g.gy, g.gm - 1, g.gd);
-      d.setHours(0, 0, 0, 0);
-      return { key: dk, time: d.getTime() };
-    }).sort((a, b) => b.time - a.time);
-
-    // Current streak
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const todayTime = now.getTime();
-    const oneDay = 24 * 60 * 60 * 1000;
-
-    let currentStreak = 0;
-    let checkTime = todayTime;
-
-    if (sortedDateObjs[0].time === todayTime) {
-      currentStreak = 1;
-      checkTime = todayTime - oneDay;
-      for (let i = 1; i < sortedDateObjs.length; i++) {
-        if (sortedDateObjs[i].time === checkTime) {
-          currentStreak++;
-          checkTime -= oneDay;
-        } else {
-          break;
-        }
-      }
-    } else if (sortedDateObjs[0].time === todayTime - oneDay) {
-      currentStreak = 1;
-      checkTime = todayTime - 2 * oneDay;
-      for (let i = 1; i < sortedDateObjs.length; i++) {
-        if (sortedDateObjs[i].time === checkTime) {
-          currentStreak++;
-          checkTime -= oneDay;
-        } else {
-          break;
-        }
-      }
-    }
-
-    // Best streak calculation
-    let bestStreak = currentStreak;
-    let tempStreak = 1;
-    for (let i = 0; i < sortedDateObjs.length - 1; i++) {
-      if (sortedDateObjs[i].time - sortedDateObjs[i + 1].time === oneDay) {
-        tempStreak++;
-        if (tempStreak > bestStreak) bestStreak = tempStreak;
-      } else {
-        tempStreak = 1;
-      }
-    }
-
-    return { current: currentStreak, best: bestStreak };
+    return StudyUtils.calculateStreaksFromSessions(state.sessions, JalaliDate, new Date(), 10);
   }
 
   function updateStatsAndCharts() {
@@ -950,25 +1022,35 @@
     });
     state.sessions.forEach(s => {
       if (subjectMap[s.subjectId]) {
-        subjectMap[s.subjectId].minutes += s.durationMinutes;
+        const vMins = s.verifiedMinutes !== undefined ? s.verifiedMinutes : (s.durationMinutes || 0);
+        subjectMap[s.subjectId].minutes += vMins;
       }
     });
 
-    const totalMinutes = state.sessions.reduce((acc, s) => acc + s.durationMinutes, 0) || 1;
+    const totalMinutes = Object.values(subjectMap).reduce((acc, s) => acc + s.minutes, 0) || 1;
 
     state.subjects.forEach(sub => {
       const mins = subjectMap[sub.id]?.minutes || 0;
       const pct = Math.round((mins / totalMinutes) * 100);
-      const item = document.createElement('div');
-      item.className = 'legend-item';
-      item.innerHTML = `
-        <div class="legend-name">
-          <div class="legend-dot" style="background: ${sub.color};"></div>
-          <span>${escapeHTML(sub.name)}</span>
+      const targetPct = StudyUtils.computeSubjectProgress(mins, sub.targetHours);
+
+      const wrap = document.createElement('div');
+      wrap.className = 'legend-item-wrap';
+      wrap.innerHTML = `
+        <div class="legend-item">
+          <div class="legend-name">
+            <div class="legend-dot" style="background: ${sub.color};"></div>
+            <span>${escapeHTML(sub.name)}</span>
+          </div>
+          <div class="legend-time">${JalaliDate.toPersianDigits(Math.round(mins / 60 * 10) / 10)}h (${JalaliDate.toPersianDigits(pct)}٪)${targetPct !== null ? ` • هدف ${JalaliDate.toPersianDigits(targetPct)}٪` : ''}</div>
         </div>
-        <div class="legend-time">${JalaliDate.toPersianDigits(Math.round(mins / 60 * 10) / 10)}h (${JalaliDate.toPersianDigits(pct)}٪)</div>
+        ${targetPct !== null ? `
+          <div class="subject-target-bar" title="پیشرفت هدف: ${JalaliDate.toPersianDigits(targetPct)}٪ از ${JalaliDate.toPersianDigits(sub.targetHours)} ساعت">
+            <div class="subject-target-fill" style="width: ${targetPct}%; background: ${sub.color};"></div>
+          </div>
+        ` : ''}
       `;
-      el.subjectsLegendList.appendChild(item);
+      el.subjectsLegendList.appendChild(wrap);
     });
   }
 
@@ -981,7 +1063,8 @@
 
     const dayMap = {};
     state.sessions.forEach(s => {
-      dayMap[s.dateKey] = (dayMap[s.dateKey] || 0) + s.durationMinutes;
+      const vMins = s.verifiedMinutes !== undefined ? s.verifiedMinutes : (s.durationMinutes || 0);
+      dayMap[s.dateKey] = (dayMap[s.dateKey] || 0) + vMins;
     });
 
     for (let i = totalDays - 1; i >= 0; i--) {
@@ -1098,16 +1181,31 @@
   // --- Session History Log ---
   function renderHistorySessions() {
     el.historySessionsList.innerHTML = '';
-    if (!state.sessions.length) {
+    const rangeVal = el.historyRangeFilter ? el.historyRangeFilter.value : 'all';
+    const subjectVal = el.historySubjectFilter ? el.historySubjectFilter.value : 'all';
+    const filtered = StudyUtils.filterSessions(state.sessions, {
+      rangeDays: rangeVal === 'all' ? 'all' : parseInt(rangeVal, 10),
+      subjectId: subjectVal,
+      nowDate: new Date(),
+      jalaliLib: JalaliDate
+    });
+
+    if (el.historyFilteredSummary) {
+      const totalVerified = filtered.reduce((acc, s) => acc + (s.verifiedMinutes !== undefined ? s.verifiedMinutes : (s.durationMinutes || 0)), 0);
+      const hrs = (totalVerified / 60).toFixed(1);
+      el.historyFilteredSummary.textContent = `${JalaliDate.toPersianDigits(filtered.length)} جلسه • ${JalaliDate.toPersianDigits(hrs)} ساعت واقعی`;
+    }
+
+    if (!filtered.length) {
       el.historySessionsList.innerHTML = `
         <div style="text-align: center; color: var(--text-dim); padding: 30px;">
-          هنوز هیچ جلسه مطالعه‌ای ثبت نشده است.
+          هیچ جلسه مطالعه‌ای با این فیلتر یافت نشد.
         </div>
       `;
       return;
     }
 
-    state.sessions.forEach(sess => {
+    filtered.forEach(sess => {
       const sub = state.subjects.find(s => s.id === sess.subjectId) || { name: 'عمومی', color: '#ff6b35' };
       const [jy, jm, jd] = (sess.dateKey || '').split('-');
       const dateStr = jd ? `${JalaliDate.toPersianDigits(jd)} ${JalaliDate.PERSIAN_MONTHS[+jm - 1]} ${JalaliDate.toPersianDigits(jy)}` : '';
@@ -1171,11 +1269,13 @@
             <div class="history-subject-indicator" style="background: ${sub.color};"></div>
             <div>
               <div style="font-weight: 700; font-size: 14px;">${escapeHTML(sub.name)}</div>
-              <div style="font-size: 11px; color: var(--text-muted);">${dateStr} • حالت: ${sess.mode === 'classic' ? 'کلاسیک' : 'معکوس'}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${dateStr} • حالت: ${sess.mode === 'classic' ? 'کلاسیک' : (sess.mode === 'manual' ? 'ثبت دستی' : 'معکوس')}</div>
             </div>
           </div>
           <button class="task-delete" data-sessid="${sess.id}" title="حذف این جلسه">✕</button>
         </div>
+
+        ${sess.note ? `<div class="history-session-note">📝 ${escapeHTML(sess.note)}</div>` : ''}
 
         <div class="history-time-badges">
           <span class="history-pill history-pill-verified" title="ساعت واقعی با تایید وبکم">
@@ -1233,7 +1333,7 @@
   function exportData() {
     const backup = {
       app: 'Changiz',
-      version: '1.0.0',
+      version: '1.1.0',
       exportedAt: new Date().toISOString(),
       state: {
         settings: state.settings,
@@ -1249,6 +1349,17 @@
     const a = document.createElement('a');
     a.href = url;
     a.download = `changiz-study-backup-${JalaliDate.getJalaliDateKey()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportCSV() {
+    const csvContent = StudyUtils.buildSessionsCSV(state.sessions, state.subjects);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `changiz-study-sessions-${JalaliDate.getJalaliDateKey()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -1302,7 +1413,7 @@
     }
 
     presenceServiceInstance = new PresenceService({
-      isSessionActive: () => state.timer.isRunning,
+      isSessionActive: () => isFocusSessionActive(),
       getCurrentSessionId: () => state.timer.currentSessionId || ('sess-' + Date.now()),
       onCheckStart: () => {
         if (el.presenceCamLive) el.presenceCamLive.style.display = 'inline-flex';
@@ -1331,7 +1442,7 @@
         }
 
         // If person was NOT detected during active study session:
-        if (observation.status === 'NOT_DETECTED' && state.timer.isRunning) {
+        if (observation.status === 'NOT_DETECTED' && isFocusSessionActive()) {
           const nowTime = new Date(observation.checkedAt).getTime();
           const lastTime = state.timer.lastCheckTime || (nowTime - 5 * 60 * 1000);
           const intervalMinutes = Math.max(1, Math.min(15, Math.round((nowTime - lastTime) / (60 * 1000)))) || 5;
@@ -1388,7 +1499,7 @@
     if (!el.presenceBar) return;
 
     const enabled = state.presence.enabled;
-    const isRunning = state.timer.isRunning;
+    const isRunning = isFocusSessionActive();
     const status = state.presence.latestStatus || 'PENDING';
 
     if (el.presenceToggleCheckbox) {
@@ -1493,7 +1604,7 @@
     logs.forEach(obs => {
       const dt = new Date(obs.checkedAt);
       const timeStr = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}:${String(dt.getSeconds()).padStart(2, '0')}`;
-      const jalaliStr = JalaliDate.getJalaliDateKey();
+      const jalaliStr = JalaliDate.getJalaliDateKey(dt);
 
       let badgeHtml = '';
       if (obs.status === 'PRESENT') {
@@ -1603,11 +1714,25 @@
     });
 
     el.btnSaveSessionManual.addEventListener('click', () => {
+      const elapsedMins = StudyUtils.computeManualSaveMinutes(
+        state.timer.mode,
+        state.timer.subMode,
+        state.timer.totalDuration,
+        state.timer.timeLeft,
+        state.timer.reverseElapsed
+      );
+      if (state.timer.mode === 'classic' && state.timer.subMode !== 'focus') {
+        alert('ثبت جلسه تنها در حالت تمرکز امکان‌پذیر است.');
+        return;
+      }
+      if (elapsedMins < 1) {
+        alert('حداقل ۱ دقیقه از زمان مطالعه باید گذشته باشد تا جلسه ثبت شود.');
+        return;
+      }
       if (state.timer.mode === 'reverse') {
         saveCurrentReverseSession();
       } else {
-        const mins = Math.round(state.timer.totalDuration / 60);
-        recordSession(mins, 'classic');
+        recordSession(elapsedMins, 'classic');
         pauseTimer();
         resetTimerDisplay();
         SoundManager.playNotification('complete');
@@ -1652,6 +1777,8 @@
       el.settingLongBreak.value = state.settings.longBreak;
       el.settingDailyGoal.value = state.settings.dailyGoalHours;
       el.settingSoundToggle.checked = state.settings.soundEnabled;
+      if (el.settingAutoStartBreak) el.settingAutoStartBreak.checked = !!state.settings.autoStartBreak;
+      if (el.settingAutoStartFocus) el.settingAutoStartFocus.checked = !!state.settings.autoStartFocus;
       if (el.settingPresenceToggle) el.settingPresenceToggle.checked = state.presence.enabled;
       if (el.settingPresenceThreshold) el.settingPresenceThreshold.value = state.presence.scoreThreshold;
       if (el.settingPresenceThresholdVal) el.settingPresenceThresholdVal.textContent = JalaliDate.toPersianDigits(state.presence.scoreThreshold.toFixed(2));
@@ -1664,6 +1791,8 @@
       state.settings.longBreak = Math.max(1, parseInt(el.settingLongBreak.value) || 15);
       state.settings.dailyGoalHours = Math.max(0.5, parseFloat(el.settingDailyGoal.value) || 4);
       state.settings.soundEnabled = el.settingSoundToggle.checked;
+      if (el.settingAutoStartBreak) state.settings.autoStartBreak = el.settingAutoStartBreak.checked;
+      if (el.settingAutoStartFocus) state.settings.autoStartFocus = el.settingAutoStartFocus.checked;
       SoundManager.setSoundEnabled(state.settings.soundEnabled);
 
       if (el.settingPresenceToggle) {
@@ -1689,7 +1818,7 @@
       state.presence.enabled = enabled;
       if (presenceServiceInstance) {
         presenceServiceInstance.setEnabled(enabled);
-        if (enabled && state.timer.isRunning) {
+        if (enabled && isFocusSessionActive()) {
           presenceServiceInstance.start();
         } else {
           presenceServiceInstance.stop();
@@ -1790,16 +1919,19 @@
         el.newSubjectName.focus();
         return;
       }
+      const parsedTarget = el.newSubjectTargetHours ? parseFloat(el.newSubjectTargetHours.value) : 0;
       const newSub = {
         id: 'sub-' + Date.now(),
         name,
-        color: selectedColor
+        color: selectedColor,
+        targetHours: (!isNaN(parsedTarget) && parsedTarget > 0) ? parsedTarget : 0
       };
       state.subjects.push(newSub);
       if (!state.activeSubjectId) {
         state.activeSubjectId = newSub.id;
       }
       el.newSubjectName.value = '';
+      if (el.newSubjectTargetHours) el.newSubjectTargetHours.value = '';
       saveState();
       populateSubjectsSelect();
       renderManagedSubjects();
@@ -1845,10 +1977,32 @@
 
     // History
     el.btnOpenHistory.addEventListener('click', () => {
+      populateHistorySubjectSelects();
       renderHistorySessions();
       el.historyModal.classList.add('open');
     });
     el.btnCloseHistory.addEventListener('click', () => el.historyModal.classList.remove('open'));
+
+    if (el.historyRangeFilter) {
+      el.historyRangeFilter.addEventListener('change', renderHistorySessions);
+    }
+    if (el.historySubjectFilter) {
+      el.historySubjectFilter.addEventListener('change', renderHistorySessions);
+    }
+    if (el.btnAddManualSession) {
+      el.btnAddManualSession.addEventListener('click', () => {
+        const mins = parseInt(el.manualSessionMinutes ? el.manualSessionMinutes.value : '0', 10);
+        if (!mins || mins < 1 || mins > 720) {
+          alert('لطفاً مدت زمان معتبر بین ۱ تا ۷۲۰ دقیقه وارد کنید.');
+          return;
+        }
+        const subId = (el.manualSessionSubject && el.manualSessionSubject.value) || state.activeSubjectId || 'general';
+        const note = el.manualSessionNote ? el.manualSessionNote.value.trim() : '';
+        recordSession(mins, 'manual', { subjectId: subId, note });
+        if (el.manualSessionNote) el.manualSessionNote.value = '';
+        renderHistorySessions();
+      });
+    }
 
     // Evidence Photo Modal
     if (el.btnCloseEvidence) {
@@ -1862,10 +2016,57 @@
     el.btnOpenBackup.addEventListener('click', () => el.backupModal.classList.add('open'));
     el.btnCloseBackup.addEventListener('click', () => el.backupModal.classList.remove('open'));
     el.btnExportJSON.addEventListener('click', exportData);
+    if (el.btnExportCSV) {
+      el.btnExportCSV.addEventListener('click', exportCSV);
+    }
     el.btnImportJSON.addEventListener('click', () => el.importFileInput.click());
     el.importFileInput.addEventListener('change', (e) => {
       if (e.target.files.length) {
         importData(e.target.files[0]);
+        e.target.value = '';
+      }
+    });
+
+    // Ambient Focus Audio Controls
+    if (el.ambientSoundBar) {
+      el.ambientSoundBar.querySelectorAll('.ambient-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const type = btn.getAttribute('data-ambient');
+          const isNowActive = SoundManager.toggleAmbient(type);
+          el.ambientSoundBar.querySelectorAll('.ambient-pill').forEach(p => {
+            p.classList.toggle('active', isNowActive && p.getAttribute('data-ambient') === type);
+          });
+        });
+      });
+    }
+
+    if (el.ambientVolumeSlider) {
+      el.ambientVolumeSlider.addEventListener('input', (e) => {
+        const vol = SoundManager.setAmbientVolume(parseFloat(e.target.value));
+        state.settings.ambientVolume = vol;
+        saveState();
+      });
+    }
+
+    // Global Keyboard Shortcuts (Space: Play/Pause, R: Reset, S: Skip, Esc: Close Modals)
+    document.addEventListener('keydown', (e) => {
+      const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
+      const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable);
+
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+        return;
+      }
+      if (isTyping || e.ctrlKey || e.metaKey || e.altKey) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        toggleTimer();
+      } else if (e.key === 'r' || e.key === 'R') {
+        pauseTimer();
+        resetTimerDisplay();
+      } else if (e.key === 's' || e.key === 'S') {
+        el.btnSkipTimer.click();
       }
     });
 

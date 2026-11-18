@@ -20,9 +20,10 @@ const JalaliDate = (() => {
     'یک', 'دو', 'سه', 'چهار', 'پنج', 'جمعه', 'شنبه'
   ];
 
-  // Convert Gregorian to Jalali
+  // Convert Gregorian (gy, 0-based gm, gd) to Jalali (jy, 1-based jm, jd)
   function gregorianToJalali(gy, gm, gd) {
-    let g_day_no = 365 * (gy - 1600) + Math.floor((gy - 1599) / 4) - Math.floor((gy - 1599) / 100) + Math.floor((gy - 1599) / 400);
+    const g_y = gy - 1600;
+    let g_day_no = 365 * g_y + Math.floor((g_y + 3) / 4) - Math.floor((g_y + 99) / 100) + Math.floor((g_y + 399) / 400);
     for (let i = 0; i < gm; ++i) g_day_no += g_days_in_month[i];
     if (gm > 1 && ((gy % 4 === 0 && gy % 100 !== 0) || (gy % 400 === 0))) ++g_day_no;
     g_day_no += gd - 1;
@@ -49,7 +50,7 @@ const JalaliDate = (() => {
     return { jy, jm: jm + 1, jd };
   }
 
-  // Convert Jalali to Gregorian
+  // Convert Jalali (jy, 1-based jm, jd) to Gregorian (gy, 1-based gm, gd)
   function jalaliToGregorian(jy, jm, jd) {
     let j_day_no = 365 * (jy - 979) + Math.floor(Math.floor((jy - 979) / 33) * 8) + Math.floor((((jy - 979) % 33) + 3) / 4);
     for (let i = 0; i < jm - 1; ++i) j_day_no += j_days_in_month[i];
@@ -94,8 +95,8 @@ const JalaliDate = (() => {
     return String(n).replace(/[0-9]/g, w => faDigits[+w]);
   }
 
-  function getTodayJalali() {
-    const d = new Date();
+  function getTodayJalali(date = new Date()) {
+    const d = date instanceof Date ? date : new Date(date);
     const j = gregorianToJalali(d.getFullYear(), d.getMonth(), d.getDate());
     const weekday = PERSIAN_WEEKDAYS[d.getDay()];
     return {
@@ -109,15 +110,39 @@ const JalaliDate = (() => {
 
   function formatISODateToJalali(isoString) {
     if (!isoString) return '';
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) return isoString;
-    const j = gregorianToJalali(d.getFullYear(), d.getMonth(), d.getDate());
+    // Handle date-only ISO strings (YYYY-MM-DD) without UTC timezone day-shift
+    const dateOnlyMatch = typeof isoString === 'string' && /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoString.trim());
+    let gy, gmZeroBased, gd;
+    if (dateOnlyMatch) {
+      gy = parseInt(dateOnlyMatch[1], 10);
+      gmZeroBased = parseInt(dateOnlyMatch[2], 10) - 1;
+      gd = parseInt(dateOnlyMatch[3], 10);
+    } else {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return isoString;
+      gy = d.getFullYear();
+      gmZeroBased = d.getMonth();
+      gd = d.getDate();
+    }
+    const j = gregorianToJalali(gy, gmZeroBased, gd);
     return `${toPersianDigits(j.jy)}/${toPersianDigits(String(j.jm).padStart(2, '0'))}/${toPersianDigits(String(j.jd).padStart(2, '0'))}`;
   }
 
   function getJalaliDateKey(date = new Date()) {
-    const j = gregorianToJalali(date.getFullYear(), date.getMonth(), date.getDate());
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return '';
+    const j = gregorianToJalali(d.getFullYear(), d.getMonth(), d.getDate());
     return `${j.jy}-${String(j.jm).padStart(2, '0')}-${String(j.jd).padStart(2, '0')}`;
+  }
+
+  // Convert a Jalali date key (YYYY-MM-DD) to a DST-safe UTC midnight timestamp
+  function parseJalaliDateKeyToUTCMs(dateKey) {
+    if (!dateKey || typeof dateKey !== 'string') return NaN;
+    const parts = dateKey.split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return NaN;
+    const [jy, jm, jd] = parts;
+    const g = jalaliToGregorian(jy, jm, jd);
+    return Date.UTC(g.gy, g.gm - 1, g.gd);
   }
 
   return {
@@ -127,6 +152,7 @@ const JalaliDate = (() => {
     getTodayJalali,
     formatISODateToJalali,
     getJalaliDateKey,
+    parseJalaliDateKeyToUTCMs,
     PERSIAN_MONTHS,
     PERSIAN_WEEKDAYS,
     PERSIAN_WEEKDAYS_SHORT
@@ -136,4 +162,3 @@ const JalaliDate = (() => {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = JalaliDate;
 }
-

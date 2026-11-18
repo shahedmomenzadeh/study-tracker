@@ -4,8 +4,10 @@
  */
 const ChartRenderer = (() => {
   function setupHiDPICanvas(canvas) {
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
+    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    const rect = typeof canvas.getBoundingClientRect === 'function'
+      ? canvas.getBoundingClientRect()
+      : { width: canvas.width || 400, height: canvas.height || 200 };
     const width = rect.width || canvas.width || 400;
     const height = rect.height || canvas.height || 200;
 
@@ -13,8 +15,17 @@ const ChartRenderer = (() => {
     canvas.height = height * dpr;
 
     const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
+    if (typeof ctx.scale === 'function') {
+      ctx.scale(dpr, dpr);
+    }
     return { ctx, width, height };
+  }
+
+  function toFa(val) {
+    if (typeof JalaliDate !== 'undefined' && JalaliDate.toPersianDigits) {
+      return JalaliDate.toPersianDigits(val);
+    }
+    return String(val);
   }
 
   // Draw weekly bar chart (Saturday to Friday in Persian calendar)
@@ -24,12 +35,22 @@ const ChartRenderer = (() => {
 
     ctx.clearRect(0, 0, width, height);
 
+    if (!Array.isArray(daysData) || daysData.length === 0) {
+      ctx.font = '13px Vazirmatn, Segoe UI, sans-serif';
+      ctx.fillStyle = isDark ? '#6b7280' : '#9ca3af';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('داده‌ای برای نمایش وجود ندارد', width / 2, height / 2);
+      return;
+    }
+
     const padding = { top: 35, bottom: 35, left: 20, right: 20 };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
     // Max hours to scale
-    const maxVal = Math.max(targetHours * 1.3, ...daysData.map(d => d.hours || 0), 2);
+    const safeTarget = Math.max(0.5, Number(targetHours) || 4);
+    const maxVal = Math.max(safeTarget * 1.3, ...daysData.map(d => d.hours || 0), 2);
 
     const barCount = daysData.length;
     const barWidth = Math.min(38, (chartW / barCount) * 0.55);
@@ -42,7 +63,7 @@ const ChartRenderer = (() => {
     const targetLineColor = '#ff6b35';
 
     // Target Line
-    const targetY = padding.top + chartH - (targetHours / maxVal) * chartH;
+    const targetY = padding.top + chartH - (safeTarget / maxVal) * chartH;
     ctx.save();
     ctx.beginPath();
     ctx.setLineDash([4, 4]);
@@ -56,7 +77,7 @@ const ChartRenderer = (() => {
     ctx.font = '10px Vazirmatn, Segoe UI, sans-serif';
     ctx.fillStyle = targetLineColor;
     ctx.textAlign = 'right';
-    ctx.fillText(`هدف: ${JalaliDate.toPersianDigits(targetHours)}h`, width - padding.right, targetY - 4);
+    ctx.fillText(`هدف: ${toFa(safeTarget)}h`, width - padding.right, targetY - 4);
     ctx.restore();
 
     // Baseline
@@ -71,7 +92,7 @@ const ChartRenderer = (() => {
     daysData.forEach((day, i) => {
       const centerX = padding.left + i * gap + gap / 2;
       const x = centerX - barWidth / 2;
-      const hours = day.hours || 0;
+      const hours = Math.max(0, day.hours || 0);
       const barH = (hours / maxVal) * chartH;
       const y = padding.top + chartH - barH;
 
@@ -87,7 +108,7 @@ const ChartRenderer = (() => {
         if (day.isToday) {
           grad.addColorStop(0, '#ff6b35');
           grad.addColorStop(1, '#ff9566');
-        } else if (hours >= targetHours) {
+        } else if (hours >= safeTarget) {
           grad.addColorStop(0, '#10b981');
           grad.addColorStop(1, '#34d399');
         } else {
@@ -105,15 +126,15 @@ const ChartRenderer = (() => {
       ctx.font = 'bold 11px Vazirmatn, Segoe UI, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = day.isToday ? '#ff6b35' : (hours > 0 ? textBoldColor : textColor);
-      const displayTime = hours >= 1 
-        ? `${JalaliDate.toPersianDigits(hours.toFixed(1))}h` 
-        : (hours > 0 ? `${JalaliDate.toPersianDigits(Math.round(hours * 60))}m` : '۰');
+      const displayTime = hours >= 1
+        ? `${toFa(hours.toFixed(1))}h`
+        : (hours > 0 ? `${toFa(Math.round(hours * 60))}m` : '۰');
       ctx.fillText(displayTime, centerX, Math.max(14, y - 6));
 
       // Day name at bottom
       ctx.font = day.isToday ? 'bold 12px Vazirmatn, Segoe UI, sans-serif' : '11px Vazirmatn, Segoe UI, sans-serif';
       ctx.fillStyle = day.isToday ? '#ff6b35' : textColor;
-      ctx.fillText(day.label, centerX, height - 12);
+      ctx.fillText(day.label || '', centerX, height - 12);
     });
   }
 
@@ -123,12 +144,13 @@ const ChartRenderer = (() => {
     const { ctx, width, height } = setupHiDPICanvas(canvas);
     ctx.clearRect(0, 0, width, height);
 
+    const safeSubjects = Array.isArray(subjectsData) ? subjectsData : [];
     const centerX = width / 2;
     const centerY = height / 2;
-    const radius = Math.min(centerX, centerY) - 15;
+    const radius = Math.max(10, Math.min(centerX, centerY) - 15);
     const innerRadius = radius * 0.62;
 
-    const totalMinutes = subjectsData.reduce((acc, cur) => acc + cur.minutes, 0);
+    const totalMinutes = safeSubjects.reduce((acc, cur) => acc + Math.max(0, cur.minutes || 0), 0);
 
     if (totalMinutes === 0) {
       // Empty placeholder circle
@@ -148,9 +170,10 @@ const ChartRenderer = (() => {
 
     let startAngle = -Math.PI / 2;
 
-    subjectsData.forEach(sub => {
-      if (sub.minutes <= 0) return;
-      const sliceAngle = (sub.minutes / totalMinutes) * Math.PI * 2;
+    safeSubjects.forEach(sub => {
+      const mins = Math.max(0, sub.minutes || 0);
+      if (mins <= 0) return;
+      const sliceAngle = (mins / totalMinutes) * Math.PI * 2;
       const endAngle = startAngle + sliceAngle;
 
       ctx.beginPath();
@@ -170,7 +193,7 @@ const ChartRenderer = (() => {
     const totalHours = (totalMinutes / 60).toFixed(1);
     ctx.font = 'bold 18px Vazirmatn, Segoe UI, sans-serif';
     ctx.fillStyle = isDark ? '#f9fafb' : '#111827';
-    ctx.fillText(`${JalaliDate.toPersianDigits(totalHours)} ساعت`, centerX, centerY - 6);
+    ctx.fillText(`${toFa(totalHours)} ساعت`, centerX, centerY - 6);
 
     ctx.font = '11px Vazirmatn, Segoe UI, sans-serif';
     ctx.fillStyle = isDark ? '#9ca3af' : '#6b7280';
@@ -198,4 +221,3 @@ const ChartRenderer = (() => {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = ChartRenderer;
 }
-

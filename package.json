@@ -1,11 +1,11 @@
 {
   "name": "changiz",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "چنگیز با سیبیل کلفتش بالاسرته که درست رو بخونی",
   "main": "index.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test test/presence.test.js test/absence-evidence.test.js",
+    "test": "node --test test/presence.test.js test/absence-evidence.test.js test/study-tracker.test.js",
     "build:ts": "tsc"
   },
   "keywords": [],
