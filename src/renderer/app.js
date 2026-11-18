@@ -1333,7 +1333,7 @@
   function exportData() {
     const backup = {
       app: 'Changiz',
-      version: '1.1.0',
+      version: '1.1.1',
       exportedAt: new Date().toISOString(),
       state: {
         settings: state.settings,

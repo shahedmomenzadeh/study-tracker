@@ -83,7 +83,7 @@ jobs:
 
           # 4. Compile Changiz-Setup.exe (Standalone Installer)
           Write-Host "Compiling Changiz-Setup.exe with embedded bundle..."
-          & $csc /target:winexe /out:Changiz-Setup.exe /win32icon:assets\icon.ico /res:app_bundle.zip,app_bundle.zip src\ChangizSetup.cs
+          & $csc /target:winexe /r:System.IO.Compression.FileSystem.dll /r:System.IO.Compression.dll /out:Changiz-Setup.exe /win32icon:assets\icon.ico /res:app_bundle.zip,app_bundle.zip src\ChangizSetup.cs
           if ($LASTEXITCODE -ne 0) { throw "Compilation failed for Changiz-Setup.exe" }
 
           Write-Host "Successfully compiled binaries:"

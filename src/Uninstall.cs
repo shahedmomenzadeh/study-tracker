@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Windows.Forms;
@@ -22,15 +23,34 @@ namespace ChangizUninstall
 
             try
             {
-                // Remove Desktop Shortcut
-                string desktopShortcut = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "چنگیز - ردیاب مطالعه.lnk");
-                if (File.Exists(desktopShortcut)) File.Delete(desktopShortcut);
+                // 1. Remove Desktop Shortcuts from all known desktop directories
+                string[] shortcutNames = new string[]
+                {
+                    "چنگیز - ردیاب مطالعه.lnk",
+                    "چنگیز (Changiz).lnk",
+                    "Changiz.lnk"
+                };
 
-                // Remove Start Menu Shortcut
+                foreach (string desk in GetDesktopDirectories())
+                {
+                    foreach (string name in shortcutNames)
+                    {
+                        string lnk = Path.Combine(desk, name);
+                        if (File.Exists(lnk))
+                        {
+                            try { File.Delete(lnk); } catch { }
+                        }
+                    }
+                }
+
+                // 2. Remove Start Menu Folder
                 string startMenuDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Changiz");
-                if (Directory.Exists(startMenuDir)) Directory.Delete(startMenuDir, true);
+                if (Directory.Exists(startMenuDir))
+                {
+                    try { Directory.Delete(startMenuDir, true); } catch { }
+                }
 
-                // Remove Registry Uninstall Entry
+                // 3. Remove Registry Uninstall Entry
                 try
                 {
                     using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall", true))
@@ -40,7 +60,7 @@ namespace ChangizUninstall
                 }
                 catch { }
 
-                // Schedule self deletion
+                // 4. Schedule self deletion of installation directory
                 string appDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
                 ProcessStartInfo psi = new ProcessStartInfo
                 {
@@ -62,6 +82,38 @@ namespace ChangizUninstall
             {
                 MessageBox.Show("خطا در حذف برنامه:\n" + ex.Message, "خطا", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private static string[] GetDesktopDirectories()
+        {
+            var list = new List<string>();
+            string standard = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            if (!string.IsNullOrEmpty(standard) && Directory.Exists(standard))
+            {
+                list.Add(standard);
+            }
+
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"))
+                {
+                    if (key != null)
+                    {
+                        object val = key.GetValue("Desktop");
+                        if (val != null)
+                        {
+                            string expanded = Environment.ExpandEnvironmentVariables(val.ToString());
+                            if (Directory.Exists(expanded) && !list.Contains(expanded))
+                            {
+                                list.Add(expanded);
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            return list.ToArray();
         }
     }
 }

@@ -1,23 +1,59 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.IO.Compression;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
 namespace ChangizInstaller
 {
+    [ComImport]
+    [Guid("00021401-0000-0000-C000-000000000046")]
+    internal class ShellLink
+    {
+    }
+
+    [ComImport]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    [Guid("000214F9-0000-0000-C000-000000000046")]
+    internal interface IShellLinkW
+    {
+        void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pszFile, int cchMaxPath, out IntPtr pfd, int fFlags);
+        void GetIDList(out IntPtr ppidl);
+        void SetIDList(IntPtr pidl);
+        void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pszName, int cchMaxName);
+        void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string pszName);
+        void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pszDir, int cchMaxPath);
+        void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string pszDir);
+        void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pszArgs, int cchMaxPath);
+        void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string pszArgs);
+        void GetHotkey(out short pwHotkey);
+        void SetHotkey(short wHotkey);
+        void GetShowCmd(out int piShowCmd);
+        void SetShowCmd(int iShowCmd);
+        void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pszIconPath, int cchIconPath, out int piIcon);
+        void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string pszIconPath, int iIcon);
+        void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string pszPathRel, int dwReserved);
+        void Resolve(IntPtr hwnd, int fFlags);
+        void SetPath([MarshalAs(UnmanagedType.LPWStr)] string pszFile);
+    }
+
     public class SetupForm : Form
     {
         private TextBox txtInstallPath;
+        private Button btnBrowse;
         private CheckBox chkDesktopShortcut;
         private CheckBox chkStartMenuShortcut;
         private CheckBox chkLaunchAfter;
         private ProgressBar progressBar;
+        private Label lblStatus;
         private Button btnInstall;
         private Button btnCancel;
-        private Label lblStatus;
 
         public SetupForm()
         {
@@ -27,17 +63,17 @@ namespace ChangizInstaller
         private void InitializeComponent()
         {
             this.Text = "نصب چنگیز | Changiz Setup";
-            this.Size = new Size(580, 480);
+            this.ClientSize = new Size(580, 480);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = true;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.RightToLeft = RightToLeft.Yes;
-            this.RightToLeftLayout = true;
+            this.RightToLeftLayout = false;
             this.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
             this.BackColor = Color.FromArgb(248, 247, 244);
 
-            // Load Icon if available
+            // Load Application Icon if embedded
             try
             {
                 using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("icon.ico"))
@@ -47,76 +83,123 @@ namespace ChangizInstaller
             }
             catch { }
 
-            // Header Banner
+            // 1. Top Header Banner
             Panel headerPanel = new Panel();
             headerPanel.Dock = DockStyle.Top;
-            headerPanel.Height = 100;
-            headerPanel.BackColor = Color.FromArgb(255, 107, 53); // Terracotta Orange
+            headerPanel.Height = 85;
+            headerPanel.BackColor = Color.FromArgb(255, 107, 53);
             headerPanel.Paint += (s, e) =>
             {
-                using (Font titleFont = new Font("Segoe UI", 15f, FontStyle.Bold))
-                using (Font subFont = new Font("Segoe UI", 10f, FontStyle.Bold))
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+                using (Font titleFont = new Font("Segoe UI", 14f, FontStyle.Bold))
+                using (Font subFont = new Font("Segoe UI", 9.5f, FontStyle.Regular))
                 using (SolidBrush brush = new SolidBrush(Color.White))
                 {
-                    e.Graphics.DrawString("نصب و راه‌اندازی چنگیز (Changiz)", titleFont, brush, new PointF(20, 20));
-                    e.Graphics.DrawString("چنگیز با سیبیل کلفتش بالاسرته که درست رو بخونی", subFont, brush, new PointF(22, 58));
+                    e.Graphics.DrawString("نصب و راه‌اندازی چنگیز (Changiz)", titleFont, brush, new PointF(20, 16));
+                    e.Graphics.DrawString("چنگیز با سیبیل کلفتش بالاسرته که درست رو بخونی", subFont, brush, new PointF(22, 50));
                 }
             };
             this.Controls.Add(headerPanel);
 
-            // Main Content Container
-            Panel contentPanel = new Panel();
-            contentPanel.Dock = DockStyle.Fill;
-            contentPanel.Padding = new Padding(25);
-            this.Controls.Add(contentPanel);
+            // 2. Bottom Action Panel
+            Panel bottomPanel = new Panel();
+            bottomPanel.Dock = DockStyle.Bottom;
+            bottomPanel.Height = 55;
+            bottomPanel.BackColor = Color.FromArgb(240, 238, 234);
+            bottomPanel.Paint += (s, e) =>
+            {
+                using (Pen p = new Pen(Color.FromArgb(215, 212, 205)))
+                {
+                    e.Graphics.DrawLine(p, 0, 0, bottomPanel.Width, 0);
+                }
+            };
 
-            int curY = 115;
+            btnInstall = new Button();
+            btnInstall.Text = "نصب چنگیز";
+            btnInstall.Size = new Size(115, 32);
+            btnInstall.Location = new Point(25, 11);
+            btnInstall.BackColor = Color.FromArgb(255, 107, 53);
+            btnInstall.ForeColor = Color.White;
+            btnInstall.FlatStyle = FlatStyle.Flat;
+            btnInstall.FlatAppearance.BorderSize = 0;
+            btnInstall.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            btnInstall.Cursor = Cursors.Hand;
+            btnInstall.Click += StartInstallation;
+            bottomPanel.Controls.Add(btnInstall);
 
-            // Description Label
+            btnCancel = new Button();
+            btnCancel.Text = "انصراف";
+            btnCancel.Size = new Size(90, 32);
+            btnCancel.Location = new Point(150, 11);
+            btnCancel.BackColor = Color.White;
+            btnCancel.FlatStyle = FlatStyle.Flat;
+            btnCancel.FlatAppearance.BorderColor = Color.FromArgb(200, 198, 192);
+            btnCancel.Cursor = Cursors.Hand;
+            btnCancel.Click += (s, e) => this.Close();
+            bottomPanel.Controls.Add(btnCancel);
+
+            this.Controls.Add(bottomPanel);
+
+            // 3. Main Setup Controls (Directly on form for perfect visibility)
+            int curY = 98;
+
             Label lblIntro = new Label();
-            lblIntro.Text = "این برنامه چنگیز را با تمامی ابزارهای ردیابی مطالعه، پایش هوشمند وبکم، تایمر دوگانه، استریک‌ها و آمار هفتگی روی سیستم شما نصب می‌کند.";
+            lblIntro.Text = "برنامه چنگیز در مسیر زیر نصب خواهد شد. برای تغییر مسیر، روی «انتخاب پوشه...» کلیک کنید:";
             lblIntro.Location = new Point(25, curY);
-            lblIntro.Size = new Size(515, 38);
+            lblIntro.Size = new Size(530, 24);
             lblIntro.ForeColor = Color.FromArgb(60, 64, 75);
             this.Controls.Add(lblIntro);
 
-            curY += 46;
+            curY += 28;
 
-            // Install Path Label
             Label lblPath = new Label();
-            lblPath.Text = "مسیر نصب برنامه:";
+            lblPath.Text = "مسیر پوشه نصب برنامه:";
             lblPath.Location = new Point(25, curY);
-            lblPath.Size = new Size(150, 20);
+            lblPath.Size = new Size(160, 20);
             lblPath.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
             this.Controls.Add(lblPath);
 
             curY += 24;
 
-            // Path Textbox
+            // Default install path in standard user application directory (no admin needed)
             string defaultPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Programs", "Changiz"
             );
+
             txtInstallPath = new TextBox();
             txtInstallPath.Text = defaultPath;
-            txtInstallPath.Location = new Point(115, curY);
-            txtInstallPath.Size = new Size(425, 26);
+            txtInstallPath.Location = new Point(25, curY);
+            txtInstallPath.Size = new Size(420, 26);
+            txtInstallPath.RightToLeft = RightToLeft.No; // File paths flow LTR cleanly
             this.Controls.Add(txtInstallPath);
 
-            // Browse Button
-            Button btnBrowse = new Button();
+            btnBrowse = new Button();
             btnBrowse.Text = "انتخاب پوشه...";
-            btnBrowse.Location = new Point(25, curY);
-            btnBrowse.Size = new Size(85, 27);
+            btnBrowse.Location = new Point(455, curY - 1);
+            btnBrowse.Size = new Size(100, 28);
+            btnBrowse.BackColor = Color.White;
+            btnBrowse.FlatStyle = FlatStyle.Flat;
+            btnBrowse.FlatAppearance.BorderColor = Color.FromArgb(200, 198, 192);
+            btnBrowse.Cursor = Cursors.Hand;
             btnBrowse.Click += (s, e) =>
             {
                 using (FolderBrowserDialog fbd = new FolderBrowserDialog())
                 {
-                    fbd.Description = "مسیر نصب برنامه چنگیز را مشخص کنید:";
-                    fbd.SelectedPath = txtInstallPath.Text;
-                    if (fbd.ShowDialog() == DialogResult.OK)
+                    fbd.Description = "مسیر نصب برنامه چنگیز را انتخاب کنید:";
+                    if (Directory.Exists(txtInstallPath.Text))
                     {
-                        txtInstallPath.Text = fbd.SelectedPath;
+                        fbd.SelectedPath = txtInstallPath.Text;
+                    }
+                    if (fbd.ShowDialog(this) == DialogResult.OK)
+                    {
+                        string selected = fbd.SelectedPath;
+                        if (!selected.TrimEnd('\\').EndsWith("Changiz", StringComparison.OrdinalIgnoreCase))
+                        {
+                            selected = Path.Combine(selected, "Changiz");
+                        }
+                        txtInstallPath.Text = selected;
                     }
                 }
             };
@@ -124,81 +207,56 @@ namespace ChangizInstaller
 
             curY += 38;
 
-            // GroupBox for shortcuts
+            // Shortcuts GroupBox
             GroupBox grpOptions = new GroupBox();
-            grpOptions.Text = "تنظیمات میانبرها";
+            grpOptions.Text = "تنظیمات میانبرها و اجرا";
             grpOptions.Location = new Point(25, curY);
-            grpOptions.Size = new Size(515, 100);
+            grpOptions.Size = new Size(530, 118);
+            grpOptions.ForeColor = Color.FromArgb(40, 44, 52);
 
             chkDesktopShortcut = new CheckBox();
             chkDesktopShortcut.Text = "ایجاد میانبر روی دسکتاپ (Desktop Shortcut)";
             chkDesktopShortcut.Checked = true;
-            chkDesktopShortcut.Location = new Point(20, 24);
-            chkDesktopShortcut.Size = new Size(470, 22);
+            chkDesktopShortcut.Location = new Point(15, 24);
+            chkDesktopShortcut.Size = new Size(495, 24);
+            chkDesktopShortcut.Cursor = Cursors.Hand;
             grpOptions.Controls.Add(chkDesktopShortcut);
 
             chkStartMenuShortcut = new CheckBox();
             chkStartMenuShortcut.Text = "ایجاد میانبر در منوی استارت (Start Menu)";
             chkStartMenuShortcut.Checked = true;
-            chkStartMenuShortcut.Location = new Point(20, 48);
-            chkStartMenuShortcut.Size = new Size(470, 22);
+            chkStartMenuShortcut.Location = new Point(15, 52);
+            chkStartMenuShortcut.Size = new Size(495, 24);
+            chkStartMenuShortcut.Cursor = Cursors.Hand;
             grpOptions.Controls.Add(chkStartMenuShortcut);
 
             chkLaunchAfter = new CheckBox();
-            chkLaunchAfter.Text = "اجرای خودکار چنگیز پس از اتمام نصب";
+            chkLaunchAfter.Text = "اجرای خودکار چنگیز پس از اتمام فرآیند نصب";
             chkLaunchAfter.Checked = true;
-            chkLaunchAfter.Location = new Point(20, 72);
-            chkLaunchAfter.Size = new Size(470, 22);
+            chkLaunchAfter.Location = new Point(15, 80);
+            chkLaunchAfter.Size = new Size(495, 24);
+            chkLaunchAfter.Cursor = Cursors.Hand;
             grpOptions.Controls.Add(chkLaunchAfter);
 
             this.Controls.Add(grpOptions);
 
-            curY += 110;
+            curY += 128;
 
-            // Progress Bar
+            // Installation Progress Bar
             progressBar = new ProgressBar();
             progressBar.Location = new Point(25, curY);
-            progressBar.Size = new Size(515, 14);
+            progressBar.Size = new Size(530, 16);
             progressBar.Visible = false;
             this.Controls.Add(progressBar);
 
-            // Status Label
+            // Installation Status Label
             lblStatus = new Label();
             lblStatus.Text = "";
-            lblStatus.Location = new Point(25, curY + 16);
-            lblStatus.Size = new Size(515, 20);
-            lblStatus.ForeColor = Color.FromArgb(100, 105, 115);
+            lblStatus.Location = new Point(25, curY + 20);
+            lblStatus.Size = new Size(530, 22);
+            lblStatus.ForeColor = Color.FromArgb(85, 90, 100);
             lblStatus.Visible = false;
             this.Controls.Add(lblStatus);
-
-            curY += 40;
-
-            // Action Buttons
-            Panel bottomPanel = new Panel();
-            bottomPanel.Dock = DockStyle.Bottom;
-            bottomPanel.Height = 55;
-            bottomPanel.BackColor = Color.FromArgb(240, 238, 234);
-
-            btnCancel = new Button();
-            btnCancel.Text = "انصراف";
-            btnCancel.Location = new Point(25, 12);
-            btnCancel.Size = new Size(90, 32);
-            btnCancel.Click += (s, e) => this.Close();
-            bottomPanel.Controls.Add(btnCancel);
-
-            btnInstall = new Button();
-            btnInstall.Text = "نصب چنگیز";
-            btnInstall.Location = new Point(125, 12);
-            btnInstall.Size = new Size(110, 32);
-            btnInstall.BackColor = Color.FromArgb(255, 107, 53);
-            btnInstall.ForeColor = Color.White;
-            btnInstall.FlatStyle = FlatStyle.Flat;
-            btnInstall.FlatAppearance.BorderSize = 0;
-            btnInstall.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-            btnInstall.Click += StartInstallation;
-            bottomPanel.Controls.Add(btnInstall);
-
-            this.Controls.Add(bottomPanel);
         }
 
         private void StartInstallation(object sender, EventArgs e)
@@ -206,18 +264,15 @@ namespace ChangizInstaller
             string targetDir = txtInstallPath.Text.Trim();
             if (string.IsNullOrEmpty(targetDir))
             {
-                MessageBox.Show("لطفاً یک مسیر معتبر برای نصب انتخاب کنید.", "خطا", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(
+                    "لطفاً یک مسیر معتبر برای نصب برنامه مشخص کنید.",
+                    "خطا در مسیر نصب",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+                txtInstallPath.Focus();
                 return;
             }
-
-            btnInstall.Enabled = false;
-            btnCancel.Enabled = false;
-            progressBar.Visible = true;
-            lblStatus.Visible = true;
-            progressBar.Value = 10;
-            lblStatus.Text = "درحال آماده‌سازی فایل‌ها...";
-
-            Application.DoEvents();
 
             try
             {
@@ -225,20 +280,47 @@ namespace ChangizInstaller
                 {
                     Directory.CreateDirectory(targetDir);
                 }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "امکان ساخت پوشه در مسیر مشخص‌شده وجود ندارد:\n" + ex.Message + "\n\nلطفاً مسیر دیگری را انتخاب نمایید یا برنامه را با دسترسی مدیر (Run as administrator) اجرا کنید.",
+                    "خطای دسترسی",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+                txtInstallPath.Focus();
+                return;
+            }
 
-                progressBar.Value = 30;
-                lblStatus.Text = "درحال استخراج فایل‌های چنگیز...";
+            // Lock controls during install
+            btnInstall.Enabled = false;
+            btnCancel.Enabled = false;
+            btnBrowse.Enabled = false;
+            txtInstallPath.Enabled = false;
+            chkDesktopShortcut.Enabled = false;
+            chkStartMenuShortcut.Enabled = false;
+            chkLaunchAfter.Enabled = false;
 
-                // Extract embedded app_bundle.zip
+            progressBar.Visible = true;
+            lblStatus.Visible = true;
+            progressBar.Value = 5;
+            lblStatus.Text = "درحال آماده‌سازی فایل‌ها...";
+
+            Application.DoEvents();
+
+            try
+            {
+                // 1. Extract embedded app_bundle.zip to temp file
                 string tempZip = Path.Combine(Path.GetTempPath(), "changiz_bundle_" + Guid.NewGuid().ToString("N") + ".zip");
                 using (Stream resStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("app_bundle.zip"))
                 {
                     if (resStream == null)
                     {
-                        throw new Exception("فایل‌های برنامه در راه‌انداز یافت نشد (app_bundle.zip missing).");
+                        throw new Exception("بسته برنامه در فایل نصبی یافت نشد (app_bundle.zip missing).");
                     }
 
-                    using (FileStream fs = new FileStream(tempZip, FileMode.Create, FileAccess.Write))
+                    using (FileStream fs = new FileStream(tempZip, FileMode.Create, FileAccess.Write, FileShare.None))
                     {
                         byte[] buffer = new byte[65536];
                         int bytesRead;
@@ -249,130 +331,225 @@ namespace ChangizInstaller
                     }
                 }
 
-                progressBar.Value = 50;
-                lblStatus.Text = "درحال باز کردن بسته‌های نرم‌افزار...";
+                progressBar.Value = 20;
+                lblStatus.Text = "درحال استخراج فایل‌های چنگیز...";
+                Application.DoEvents();
 
-                // Unzip into targetDir using PowerShell or ZipFile
-                UnzipArchive(tempZip, targetDir);
+                // 2. Unpack zip directly in-process with overwrite support
+                using (ZipArchive archive = ZipFile.OpenRead(tempZip))
+                {
+                    int totalEntries = archive.Entries.Count;
+                    int extractedCount = 0;
+
+                    foreach (ZipArchiveEntry entry in archive.Entries)
+                    {
+                        extractedCount++;
+                        string destPath = Path.Combine(targetDir, entry.FullName);
+
+                        if (string.IsNullOrEmpty(entry.Name))
+                        {
+                            // Entry is a directory
+                            if (!Directory.Exists(destPath)) Directory.CreateDirectory(destPath);
+                        }
+                        else
+                        {
+                            string parentDir = Path.GetDirectoryName(destPath);
+                            if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
+                            {
+                                Directory.CreateDirectory(parentDir);
+                            }
+                            entry.ExtractToFile(destPath, true);
+                        }
+
+                        if (totalEntries > 0)
+                        {
+                            int pct = 20 + (int)((float)extractedCount / totalEntries * 60);
+                            progressBar.Value = Math.Min(80, Math.Max(20, pct));
+                        }
+                        if (extractedCount % 10 == 0 || extractedCount == totalEntries)
+                        {
+                            lblStatus.Text = string.Format("درحال استخراج فایل‌ها ({0}/{1})...", extractedCount, totalEntries);
+                            Application.DoEvents();
+                        }
+                    }
+                }
 
                 try { File.Delete(tempZip); } catch { }
 
-                progressBar.Value = 75;
-                lblStatus.Text = "درحال ساخت میانبرها و ثبت در سیستم...";
+                progressBar.Value = 85;
+                lblStatus.Text = "درحال ثبت و ایجاد میانبرها...";
+                Application.DoEvents();
 
                 string exePath = Path.Combine(targetDir, "Changiz.exe");
                 string iconPath = Path.Combine(targetDir, "assets", "icon.ico");
                 if (!File.Exists(iconPath)) iconPath = exePath;
 
-                // Create Desktop Shortcut
+                // 3. Create Desktop Shortcut if checked
                 if (chkDesktopShortcut.Checked)
                 {
-                    string desktopPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "چنگیز - ردیاب مطالعه.lnk");
-                    CreateShortcut(desktopPath, exePath, iconPath, "چنگیز با سیبیل کلفتش بالاسرته که درست رو بخونی");
-                }
+                    lblStatus.Text = "درحال ایجاد میانبر روی دسکتاپ...";
+                    Application.DoEvents();
 
-                // Create Start Menu Shortcut
-                if (chkStartMenuShortcut.Checked)
-                {
-                    string startMenuFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Changiz");
-                    if (!Directory.Exists(startMenuFolder)) Directory.CreateDirectory(startMenuFolder);
-                    string startShortcut = Path.Combine(startMenuFolder, "چنگیز (Changiz).lnk");
-                    CreateShortcut(startShortcut, exePath, iconPath, "چنگیز با سیبیل کلفتش بالاسرته که درست رو بخونی");
-
-                    // Also add uninstall shortcut
-                    string uninstallExe = Path.Combine(targetDir, "Uninstall.exe");
-                    if (File.Exists(uninstallExe))
+                    string[] desktopDirs = GetDesktopDirectories();
+                    foreach (string desk in desktopDirs)
                     {
-                        string uninstShortcut = Path.Combine(startMenuFolder, "حذف چنگیز.lnk");
-                        CreateShortcut(uninstShortcut, uninstallExe, uninstallExe, "حذف نرم‌افزار چنگیز");
+                        string lnkPath = Path.Combine(desk, "چنگیز - ردیاب مطالعه.lnk");
+                        CreateShortcutFile(lnkPath, exePath, targetDir, iconPath, "چنگیز با سیبیل کلفتش بالاسرته که درست رو بخونی");
                     }
                 }
 
-                // Register in Windows Uninstall Registry
+                // 4. Create Start Menu Shortcuts if checked
+                if (chkStartMenuShortcut.Checked)
+                {
+                    lblStatus.Text = "درحال ایجاد میانبر در منوی استارت...";
+                    Application.DoEvents();
+
+                    string startMenuFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Changiz");
+                    if (!Directory.Exists(startMenuFolder)) Directory.CreateDirectory(startMenuFolder);
+
+                    string startLnk = Path.Combine(startMenuFolder, "چنگیز (Changiz).lnk");
+                    CreateShortcutFile(startLnk, exePath, targetDir, iconPath, "چنگیز با سیبیل کلفتش بالاسرته که درست رو بخونی");
+
+                    string uninstallExe = Path.Combine(targetDir, "Uninstall.exe");
+                    if (File.Exists(uninstallExe))
+                    {
+                        string uninstLnk = Path.Combine(startMenuFolder, "حذف چنگیز.lnk");
+                        CreateShortcutFile(uninstLnk, uninstallExe, targetDir, uninstallExe, "حذف نرم‌افزار چنگیز از سیستم");
+                    }
+                }
+
+                // 5. Register in Windows Add/Remove Programs
+                lblStatus.Text = "درحال ثبت در ویندوز...";
+                Application.DoEvents();
                 RegisterUninstall(targetDir, exePath, iconPath);
 
                 progressBar.Value = 100;
                 lblStatus.Text = "نصب چنگیز با موفقیت به پایان رسید!";
+                Application.DoEvents();
 
                 MessageBox.Show(
-                    "برنامه چنگیز با موفقیت نصب شد!\nاکنون چنگیز با سیبیل کلفتش بالاسرته که درست رو بخونی!",
+                    "برنامه چنگیز با موفقیت روی سیستم شما نصب شد!\n\nاکنون چنگیز با سیبیل کلفتش بالاسرته که درست رو بخونی!",
                     "نصب موفقیت‌آمیز",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information
                 );
 
-                // Launch if checked
+                // 6. Launch if checked
                 if (chkLaunchAfter.Checked && File.Exists(exePath))
                 {
-                    Process.Start(new ProcessStartInfo
+                    try
                     {
-                        FileName = exePath,
-                        WorkingDirectory = targetDir,
-                        UseShellExecute = true
-                    });
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = exePath,
+                            WorkingDirectory = targetDir,
+                            UseShellExecute = true
+                        });
+                    }
+                    catch { }
                 }
 
                 this.Close();
             }
             catch (Exception ex)
             {
-                MessageBox.Show("خطا در حین فرآیند نصب:\n" + ex.Message, "خطای نصب", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(
+                    "خطا در حین فرآیند نصب:\n" + ex.Message,
+                    "خطای نصب",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
                 btnInstall.Enabled = true;
                 btnCancel.Enabled = true;
-                lblStatus.Text = "خطا در نصب.";
+                btnBrowse.Enabled = true;
+                txtInstallPath.Enabled = true;
+                chkDesktopShortcut.Enabled = true;
+                chkStartMenuShortcut.Enabled = true;
+                chkLaunchAfter.Enabled = true;
+                lblStatus.Text = "فرآیند نصب با خطا مواجه شد.";
             }
         }
 
-        private void UnzipArchive(string zipPath, string extractPath)
+        private static string[] GetDesktopDirectories()
         {
-            // Use Windows built-in PowerShell Expand-Archive (guaranteed available on Win7+)
-            ProcessStartInfo psi = new ProcessStartInfo
+            var list = new List<string>();
+            string standard = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            if (!string.IsNullOrEmpty(standard) && Directory.Exists(standard))
             {
-                FileName = "powershell.exe",
-                Arguments = string.Format("-NoProfile -ExecutionPolicy Bypass -Command \"Expand-Archive -LiteralPath '{0}' -DestinationPath '{1}' -Force\"", zipPath, extractPath),
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                WindowStyle = ProcessWindowStyle.Hidden
-            };
-
-            using (Process p = Process.Start(psi))
-            {
-                p.WaitForExit();
-                if (p.ExitCode != 0)
-                {
-                    throw new Exception("خطا در استخراج فایل‌های نرم‌افزار (کد خطا: " + p.ExitCode + ")");
-                }
+                list.Add(standard);
             }
-        }
 
-        private void CreateShortcut(string shortcutPath, string targetPath, string iconLocation, string description)
-        {
             try
             {
-                string script = string.Format(
-                    "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('{0}'); $s.TargetPath = '{1}'; $s.WorkingDirectory = '{2}'; $s.IconLocation = '{3}'; $s.Description = '{4}'; $s.Save()",
-                    shortcutPath.Replace("'", "''"),
-                    targetPath.Replace("'", "''"),
-                    Path.GetDirectoryName(targetPath).Replace("'", "''"),
-                    iconLocation.Replace("'", "''"),
-                    description.Replace("'", "''")
-                );
-
-                ProcessStartInfo psi = new ProcessStartInfo
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"))
                 {
-                    FileName = "powershell.exe",
-                    Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \"" + script + "\"",
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    WindowStyle = ProcessWindowStyle.Hidden
-                };
-
-                using (Process p = Process.Start(psi))
-                {
-                    p.WaitForExit();
+                    if (key != null)
+                    {
+                        object val = key.GetValue("Desktop");
+                        if (val != null)
+                        {
+                            string expanded = Environment.ExpandEnvironmentVariables(val.ToString());
+                            if (Directory.Exists(expanded) && !list.Contains(expanded))
+                            {
+                                list.Add(expanded);
+                            }
+                        }
+                    }
                 }
             }
             catch { }
+
+            return list.ToArray();
+        }
+
+        private static bool CreateShortcutFile(string shortcutPath, string targetPath, string workingDir, string iconLocation, string description)
+        {
+            try
+            {
+                string dir = Path.GetDirectoryName(shortcutPath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+
+                IShellLinkW link = (IShellLinkW)new ShellLink();
+                link.SetPath(targetPath);
+                if (!string.IsNullOrEmpty(workingDir)) link.SetWorkingDirectory(workingDir);
+                if (!string.IsNullOrEmpty(description)) link.SetDescription(description);
+                if (!string.IsNullOrEmpty(iconLocation) && File.Exists(iconLocation))
+                {
+                    link.SetIconLocation(iconLocation, 0);
+                }
+
+                IPersistFile file = (IPersistFile)link;
+                file.Save(shortcutPath, true);
+                return File.Exists(shortcutPath);
+            }
+            catch
+            {
+                // Fallback to WScript.Shell
+                try
+                {
+                    Type shellType = Type.GetTypeFromProgID("WScript.Shell");
+                    if (shellType != null)
+                    {
+                        object shell = Activator.CreateInstance(shellType);
+                        object shortcut = shellType.InvokeMember("CreateShortcut", BindingFlags.InvokeMethod, null, shell, new object[] { shortcutPath });
+                        Type sType = shortcut.GetType();
+                        sType.InvokeMember("TargetPath", BindingFlags.SetProperty, null, shortcut, new object[] { targetPath });
+                        if (!string.IsNullOrEmpty(workingDir))
+                            sType.InvokeMember("WorkingDirectory", BindingFlags.SetProperty, null, shortcut, new object[] { workingDir });
+                        if (!string.IsNullOrEmpty(description))
+                            sType.InvokeMember("Description", BindingFlags.SetProperty, null, shortcut, new object[] { description });
+                        if (!string.IsNullOrEmpty(iconLocation) && File.Exists(iconLocation))
+                            sType.InvokeMember("IconLocation", BindingFlags.SetProperty, null, shortcut, new object[] { iconLocation });
+                        sType.InvokeMember("Save", BindingFlags.InvokeMethod, null, shortcut, null);
+                        return File.Exists(shortcutPath);
+                    }
+                }
+                catch { }
+                return false;
+            }
         }
 
         private void RegisterUninstall(string installDir, string exePath, string iconPath)
@@ -384,7 +561,7 @@ namespace ChangizInstaller
                     if (parent != null)
                     {
                         parent.SetValue("DisplayName", "چنگیز | Changiz Study Tracker");
-                        parent.SetValue("DisplayVersion", "1.1.0");
+                        parent.SetValue("DisplayVersion", "1.1.1");
                         parent.SetValue("Publisher", "Changiz");
                         parent.SetValue("DisplayIcon", iconPath);
                         parent.SetValue("InstallLocation", installDir);
@@ -405,4 +582,3 @@ namespace ChangizInstaller
         }
     }
 }
-
